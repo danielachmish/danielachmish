@@ -10,7 +10,7 @@ export async function audit(
   entity?: { type: string; id: string },
   data?: Prisma.InputJsonValue,
 ) {
-  await tx.auditLog.create({
+  await tx.auditLog.createMany({
     data: { tenantId, actorType: actor.type, actorId: actor.id, action, entityType: entity?.type, entityId: entity?.id, data },
   });
 }

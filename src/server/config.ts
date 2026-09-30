@@ -51,8 +51,9 @@ export function config(): AppConfig {
   return cached;
 }
 
+// Plan values are read on each call (cheap) so an operator config change applies without a restart.
 export function planConfig() {
-  const c = config();
+  const c = loadConfig();
   return {
     priceAgorot: c.SAAS_PLAN_PRICE_AGOROT,
     monthlyMessageQuota: c.SAAS_PLAN_MONTHLY_MESSAGE_QUOTA,
