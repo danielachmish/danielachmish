@@ -24,6 +24,18 @@ export async function handleProviderEvent({ tenantId, eventId }: { tenantId: str
   }
 }
 
+/** Serverless path: process one stored event, then its outbox and any messages that became due. */
+export async function processEventAndFollowUps(tenantId: string, eventId: string) {
+  await handleProviderEvent({ tenantId, eventId }).catch((e) => logError("provider-event", e));
+  await dispatchDueFor(tenantId);
+}
+
+export async function dispatchDueFor(tenantId: string) {
+  const created = await processOutbox(tenantId).catch((e) => (logError("outbox", e), [] as string[]));
+  for (const m of [...created, ...(await dueMessages(tenantId)).map((x) => x.id)])
+    await dispatchMessage(tenantId, m).catch((e) => logError("dispatch", e));
+}
+
 /** Every minute: recover anything whose enqueue was lost, send due messages, run outbox. */
 export async function sweep() {
   for (const tenantId of await tenantIds()) {

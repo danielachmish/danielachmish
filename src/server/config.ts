@@ -1,9 +1,11 @@
 import { z } from "zod";
+import "./env";
 
 // Validated once at startup. Refuses dangerous combinations (fake providers in production).
 const schema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    APP_ENV: z.enum(["development", "test", "demo", "production"]).optional(),
     APP_BASE_URL: z.url(),
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
@@ -23,7 +25,13 @@ const schema = z
     WHATSAPP_VERIFY_TOKEN: z.string().optional(),
   })
   .superRefine((env, ctx) => {
-    if (env.NODE_ENV !== "production") return;
+    const mode = env.APP_ENV ?? (env.NODE_ENV === "production" ? "production" : "development");
+    if (mode === "demo") {
+      // Public demo: fake providers only, never live money or messages.
+      if (env.PROVIDER_MODE === "live") ctx.addIssue({ code: "custom", path: ["PROVIDER_MODE"], message: "demo cannot use live providers" });
+      return;
+    }
+    if (mode !== "production") return;
     if (env.PROVIDER_MODE !== "live")
       ctx.addIssue({ code: "custom", path: ["PROVIDER_MODE"], message: "production requires PROVIDER_MODE=live" });
     if (env.OTP_CHANNEL === "fake")

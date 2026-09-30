@@ -1,7 +1,9 @@
-// Fake providers and dev-only routes must never run in production.
+import { isProductionEnv } from "../env";
+
+// Fake providers and dev-only routes never run in production (they do run locally and on the demo site).
 export function fakeAllowed(): boolean {
-  return process.env.NODE_ENV !== "production" && (process.env.PROVIDER_MODE ?? "fake") === "fake";
+  return !isProductionEnv() && (process.env.PROVIDER_MODE ?? "fake") === "fake";
 }
 export function assertFakeAllowed() {
-  if (process.env.NODE_ENV === "production") throw new Error("fake providers are disabled in production");
+  if (isProductionEnv()) throw new Error("fake providers are disabled in production");
 }

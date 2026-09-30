@@ -25,7 +25,8 @@
     "test:e2e": "playwright test",
     "postinstall": "prisma generate",
     "db:backup": "bash scripts/backup.sh",
-    "db:restore-check": "bash scripts/restore-check.sh"
+    "db:restore-check": "bash scripts/restore-check.sh",
+    "vercel-build": "tsx scripts/vercel-build.ts"
   },
   "dependencies": {
     "@hebcal/core": "^6.11.0",

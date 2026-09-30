@@ -8,9 +8,11 @@ import { openInquiry, setOptOut } from "../src/server/portal/actions";
 import { encryptJson } from "../src/server/crypto";
 
 // Development seed – dummy data only. Refuses to run in production.
-if (process.env.NODE_ENV === "production") throw new Error("seed is for development only");
+import { isProductionEnv } from "../src/server/env";
 
-const PASSWORD = "demo-password-123";
+if (isProductionEnv()) throw new Error("seed is for development and demo only");
+
+const PASSWORD = process.env.DEMO_PASSWORD || "demo-password-123";
 const SHARED_PHONE = "050-1111111"; // same dummy phone in both synagogues
 
 async function user(email: string, name: string, platformRole = "none") {
@@ -96,7 +98,7 @@ async function main() {
   await user("admin@example.test", "מנהל השירות", "admin");
   await synagogue(1, "בית כנסת אוהל יעקב (דמו)", "gabbai1@example.test", "גבאי ראשון");
   await synagogue(2, "בית כנסת היכל שלמה (דמו)", "gabbai2@example.test", "גבאי שני");
-  console.log(`\nDemo logins (password "${PASSWORD}"): admin@example.test, gabbai1@example.test, gabbai2@example.test`);
+  console.log(`\nDemo logins: admin@example.test, gabbai1@example.test, gabbai2@example.test${process.env.DEMO_PASSWORD ? "" : ` (password "${PASSWORD}")`}`);
   await prisma.$disconnect();
   process.exit(0);
 }

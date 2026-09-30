@@ -17,6 +17,9 @@ import { issuePersonalLink, revokeLinks } from "@/server/portal/links";
 import { encryptJson } from "@/server/crypto";
 import { audit } from "@/server/audit";
 import { prisma } from "@/server/db/client";
+import { after } from "next/server";
+import { inlineJobs } from "@/server/env";
+import { dispatchDueFor } from "@/worker/jobs";
 
 // Every action re-derives the tenant from the authenticated session (requireGabbai) and runs inside
 // that tenant's RLS context. Ids coming from the browser are only looked up within that context.
@@ -293,6 +296,7 @@ export async function bulkReminderSendAction(clientOpId: string) {
   return run(async () => {
     const g = await requireGabbai();
     const r = await sendBulkRemindersNow(g.ctx, { clientOpId: opId.parse(clientOpId), requestedBy: g.userId });
+    if (inlineJobs()) after(() => dispatchDueFor(g.tenantId));
     revalidatePath("/reminders");
     return r;
   });

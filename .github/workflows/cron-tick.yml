@@ -1,0 +1,21 @@
+name: Scheduled jobs (serverless)
+# Vercel's free plan runs cron only once a day. This workflow calls the app's job endpoint every 10 minutes
+# so reminders go out and open payments are checked. It does nothing until both secrets are set:
+#   TICK_URL    = https://<your-app>.vercel.app/api/cron/tick?job=frequent
+#   CRON_SECRET = same value as the CRON_SECRET environment variable in Vercel
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call job endpoint
+        env:
+          TICK_URL: ${{ secrets.TICK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$TICK_URL" ] || [ -z "$CRON_SECRET" ]; then echo "secrets not set – skipping"; exit 0; fi
+          curl -fsS -m 70 -H "Authorization: Bearer $CRON_SECRET" "$TICK_URL"

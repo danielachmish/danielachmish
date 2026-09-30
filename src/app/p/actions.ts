@@ -18,7 +18,7 @@ export async function verifyOtpAction(token: string, code: string) {
     const r = await verifyOtp(token, code.trim());
     (await cookies()).set(PORTAL_COOKIE, r.sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: (process.env.APP_BASE_URL ?? "").startsWith("https://"),
       sameSite: "lax",
       path: "/",
       maxAge: r.maxAgeSeconds,

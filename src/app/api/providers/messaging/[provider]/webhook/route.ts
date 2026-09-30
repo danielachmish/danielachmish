@@ -1,4 +1,7 @@
+import { after } from "next/server";
 import { receiveMessagingWebhook } from "@/server/messaging/bot";
+import { inlineJobs } from "@/server/env";
+import { processEventAndFollowUps } from "@/worker/jobs";
 import { safeEqual } from "@/server/crypto";
 
 // WhatsApp Cloud verification handshake (GET) and inbound messages / statuses (POST).
@@ -17,6 +20,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
   if (raw.length > 512 * 1024) return new Response("too large", { status: 413 });
   try {
     const r = await receiveMessagingWebhook(provider, req.headers, raw);
+    if (r.outcome === "accepted" && inlineJobs()) after(() => processEventAndFollowUps(r.tenantId, r.eventId));
     return Response.json({ ok: r.outcome !== "rejected" }, { status: r.outcome === "rejected" ? 401 : 200 });
   } catch (e) {
     console.error(JSON.stringify({ level: "error", where: "messaging-webhook", error: (e as Error).name }));

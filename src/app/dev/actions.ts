@@ -10,6 +10,9 @@ import { systemCtx, withContext } from "@/server/db/context";
 import { toIntegrationRef } from "@/server/providers/registry";
 import { hmacSha256 } from "@/server/crypto";
 import { enqueue, QUEUES } from "@/server/queue";
+import { after } from "next/server";
+import { inlineJobs } from "@/server/env";
+import { processEventAndFollowUps, sweep } from "@/worker/jobs";
 
 function guard() {
   if (!fakeAllowed()) throw new Error("dev tools disabled");
@@ -29,7 +32,8 @@ export async function fakeCheckoutAction(pageRef: string, outcome: FakeOutcome, 
   if (sendCallback) {
     const acct = await integrationFor(page.accountId, "payment");
     const { raw, signature } = fakeCallback(toIntegrationRef(acct), { page_ref: pageRef, transaction_id: txn.transactionId });
-    await receivePaymentCallback("fake", new Headers({ [FAKE_SIGNATURE_HEADER]: signature }), raw);
+    const r = await receivePaymentCallback("fake", new Headers({ [FAKE_SIGNATURE_HEADER]: signature }), raw);
+    if (r.outcome === "accepted" && inlineJobs()) after(() => processEventAndFollowUps(r.tenantId, r.eventId));
   }
   return { returnUrl: outcome === "charged" ? page.successUrl : page.failureUrl };
 }
@@ -39,20 +43,23 @@ export async function fakeRefundAction(accountId: string, transactionId: string,
   const acct = await integrationFor(accountId, "payment");
   const rf = await fakeRefund(accountId, transactionId, Math.round(amountShekels * 100));
   const { raw, signature } = fakeCallback(toIntegrationRef(acct), { transaction_id: rf.transactionId });
-  await receivePaymentCallback("fake", new Headers({ [FAKE_SIGNATURE_HEADER]: signature }), raw);
+  const r = await receivePaymentCallback("fake", new Headers({ [FAKE_SIGNATURE_HEADER]: signature }), raw);
+  if (r.outcome === "accepted" && inlineJobs()) after(() => processEventAndFollowUps(r.tenantId, r.eventId));
   revalidatePath("/dev/inbox");
 }
 
 export async function fakeInboundAction(account: string, from: string, text: string) {
   guard();
   const raw = JSON.stringify({ account, messages: [{ from, text, id: `in_${crypto.randomUUID()}` }] });
-  await receiveMessagingWebhook("fake", new Headers({ "x-fake-signature": hmacSha256(process.env.FAKE_MESSAGING_WEBHOOK_SECRET ?? "dev-messaging-secret", raw) }), raw);
+  const r = await receiveMessagingWebhook("fake", new Headers({ "x-fake-signature": hmacSha256(process.env.FAKE_MESSAGING_WEBHOOK_SECRET ?? "dev-messaging-secret", raw) }), raw);
+  if (r.outcome === "accepted" && inlineJobs()) after(() => processEventAndFollowUps(r.tenantId, r.eventId));
   revalidatePath("/dev/inbox");
 }
 
 /** Lets a developer trigger the minute sweep immediately instead of waiting for the cron. */
 export async function runSweepAction() {
   guard();
-  await enqueue(QUEUES.sweep, {});
+  if (inlineJobs()) await sweep();
+  else await enqueue(QUEUES.sweep, {});
   revalidatePath("/dev/inbox");
 }

@@ -2,17 +2,18 @@ import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import pg from "pg";
 import { fakePut } from "../providers/fake-store";
+import { fakeAllowed } from "../providers/guard";
+import { runtimeDatabaseUrl } from "../env";
 
 // Self-hosted auth (Better Auth): scrypt password hashing, httpOnly session cookies, CSRF/origin checks,
 // DB-backed rate limiting. Email delivery is a provider decision; in development emails go to /dev/inbox.
 async function sendEmail(to: string, subject: string, url: string) {
-  if (process.env.NODE_ENV === "production" || (process.env.PROVIDER_MODE ?? "fake") !== "fake")
-    throw new Error("email delivery provider is not configured");
+  if (!fakeAllowed()) throw new Error("email delivery provider is not configured");
   await fakePut("email", `${to}:${Date.now()}`, { to, subject, url });
 }
 
 const globalForAuth = globalThis as unknown as { authPool?: pg.Pool };
-const pool = (globalForAuth.authPool ??= new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 5 }));
+const pool = (globalForAuth.authPool ??= new pg.Pool({ connectionString: runtimeDatabaseUrl(), max: process.env.VERCEL ? 2 : 5 }));
 
 export const auth = betterAuth({
   appName: "ניהול נדרים",
@@ -44,6 +45,7 @@ export const auth = betterAuth({
       "/sign-up/email": { window: 300, max: 3 },
     },
   },
+  trustedOrigins: process.env.APP_BASE_URL ? [process.env.APP_BASE_URL] : [],
   advanced: { useSecureCookies: process.env.NODE_ENV === "production" },
   plugins: [nextCookies()],
 });

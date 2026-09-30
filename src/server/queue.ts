@@ -1,4 +1,5 @@
 import { PgBoss } from "pg-boss";
+import { inlineJobs } from "./env";
 
 // Durable job queue stored in PostgreSQL (pg-boss). The worker process consumes it; the web process only enqueues.
 export const QUEUES = {
@@ -29,7 +30,7 @@ export async function getBoss(): Promise<PgBoss> {
 
 /** Best-effort enqueue. The sweeper re-enqueues anything left in "received" state, so a lost enqueue is recovered. */
 export async function enqueue(name: string, data: object, opts: { singletonKey?: string } = {}) {
-  if (process.env.QUEUE_DISABLED === "true") return null;
+  if (process.env.QUEUE_DISABLED === "true" || inlineJobs()) return null; // serverless: handled inline / by the cron tick
   try {
     return await (await getBoss()).send(name, data, { singletonKey: opts.singletonKey, retryLimit: 5, retryBackoff: true });
   } catch (e) {
