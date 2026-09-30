@@ -6,6 +6,7 @@ import { whatsappCloudProvider } from "./whatsapp-cloud";
 import { decryptJson } from "../crypto";
 import { isProductionEnv } from "../env";
 import { fakeAllowed } from "./guard";
+import { whatsappIdentityProvider } from "./whatsapp-otp";
 
 // Integration accounts must match the deployment's PROVIDER_MODE; fake is impossible in production.
 function assertEnvironment(env: string) {
@@ -38,6 +39,7 @@ export function identityProvider(): IdentityDeliveryProvider {
     if (isProductionEnv()) throw new Error("fake OTP channel is disabled in production");
     return fakeIdentityProvider;
   }
+  if (ch === "whatsapp") return whatsappIdentityProvider;
   throw new Error(`OTP channel "${ch}" is not implemented yet (open business decision)`);
 }
 

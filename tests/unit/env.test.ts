@@ -97,3 +97,21 @@ describe("Neon integration variable prefix", () => {
     expect(process.env.DATABASE_URL_UNPOOLED).toBeUndefined();
   });
 });
+
+describe("email provider", () => {
+  it("uses Resend when RESEND_API_KEY is set", async () => {
+    process.env = { ...saved, RESEND_API_KEY: "re_test", EMAIL_FROM: "נדרים <no-reply@example.org>" } as NodeJS.ProcessEnv;
+    const { vi } = await import("vitest");
+    const calls: { url: string; body: string; auth: string }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      calls.push({ url, body: String(init.body), auth: (init.headers as Record<string, string>).authorization ?? "" });
+      return new Response("{}", { status: 200 });
+    });
+    const { sendEmail } = await import("@/server/providers/email");
+    await sendEmail({ to: "g@example.org", subject: "איפוס", text: "קישור" });
+    vi.unstubAllGlobals();
+    expect(calls[0]!.url).toBe("https://api.resend.com/emails");
+    expect(calls[0]!.auth).toBe("Bearer re_test");
+    expect(JSON.parse(calls[0]!.body)).toMatchObject({ to: ["g@example.org"], subject: "איפוס" });
+  });
+});

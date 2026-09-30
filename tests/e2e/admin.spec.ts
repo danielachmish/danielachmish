@@ -5,8 +5,8 @@ test.use({ storageState: state("admin") });
 
 test("admin sees synagogues and subscriptions but no congregant data", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page.getByText("אוהל יעקב")).toBeVisible();
-  await expect(page.getByText("היכל שלמה")).toBeVisible();
+  await expect(page.getByRole("link", { name: /אוהל יעקב/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /היכל שלמה/ })).toBeVisible();
   const text = await page.locator("main").innerText();
   expect(text).not.toContain("אברהם");
   await page.getByRole("link", { name: /אוהל יעקב/ }).click();

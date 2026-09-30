@@ -6,8 +6,9 @@ export const metadata: Metadata = {
   title: "ניהול נדרים לבית הכנסת",
   description: "ניהול נדרים, תשלומים ותזכורות",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "נדרים", statusBarStyle: "default" },
 };
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1d5fbf" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

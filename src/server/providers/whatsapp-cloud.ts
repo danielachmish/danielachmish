@@ -21,7 +21,13 @@ export const whatsappCloudProvider: MessagingProvider = {
           template: {
             name: msg.template.name,
             language: { code: msg.template.language },
-            components: [{ type: "body", parameters: msg.template.params.map((text) => ({ type: "text", text })) }],
+            components: [
+              { type: "body", parameters: msg.template.params.map((text) => ({ type: "text", text })) },
+              // Authentication templates carry the code again on the copy-code button (verify against Meta docs).
+              ...(msg.idempotencyKey.startsWith("otp:")
+                ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.template.params[0] ?? "" }] }]
+                : []),
+            ],
           },
         }
       : { messaging_product: "whatsapp", to: msg.to.replace(/^\+/, ""), type: "text", text: { body: msg.text } };

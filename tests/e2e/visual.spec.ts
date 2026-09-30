@@ -15,6 +15,10 @@ for (const w of widths) {
       ["batch", () => page.goto("/pledges/batch")],
       ["payments", () => page.goto("/payments")],
       ["settings", () => page.goto("/settings")],
+      ["reports", () => page.goto("/reports")],
+      ["activity", () => page.goto("/activity")],
+      ["pledge-import", () => page.goto("/pledges/import")],
+      ["reconcile", () => page.goto("/payments/reconcile")],
     ] as const) {
       await go();
       await expect(page.locator("html")).toHaveAttribute("dir", "rtl");

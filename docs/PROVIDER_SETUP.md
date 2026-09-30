@@ -41,5 +41,14 @@
 - ה-API אינו מספק מפתח idempotency; בתוצאה לא ידועה ההודעה מסומנת "unknown" ונפתחת משימה – אין שליחה חוזרת עיוורת.
 - [WhatsApp Business policy](https://whatsappbusiness.com/policy/) · [Utility conversations](https://whatsappbusiness.com/products/conversation-categories/utility/)
 
+## חיבור חשבונות לכל בית כנסת
+כל בית כנסת מחבר את חשבון הסליקה והוואטסאפ **שלו** (הכסף נכנס ישירות לחשבון בית הכנסת). החיבור נעשה בהגדרות הגבאי, או ע"י מנהל השירות בעמוד בית הכנסת בעמדת הניהול. הפרטים נשמרים מוצפנים, אינם מוצגים שוב, וכל חיבור/החלפה/ניתוק מתועד ביומן.
+קטלוג הספקים: `src/server/integrations/catalog.ts`. ספקים במצב "planned" (Tranzila, Cardcom, Grow, נדרים פלוס) מוצגים אך אינם ניתנים לחיבור עד שייכתב להם מתאם – נדרש תיעוד ה-API של הספק.
+
+## דוא"ל (אימות ואיפוס סיסמה)
+- `RESEND_API_KEY` + `EMAIL_FROM` (למשל `נדרים <no-reply@your-domain>`; הדומיין חייב להיות מאומת ב-Resend).
+- בלי מפתח: בפיתוח ובדמו ההודעות מופיעות ב-`/dev/inbox`; בייצור השליחה נכשלת בהודעה ברורה.
+
 ## OTP
+- `OTP_CHANNEL=whatsapp` שולח את הקוד דרך חשבון הוואטסאפ של בית הכנסת (ללא ספק SMS). בחיבור Cloud API נדרשת תבנית AUTHENTICATION מאושרת – שם התבנית ב-`WHATSAPP_OTP_TEMPLATE` (ברירת מחדל `otp_code`). בדמו/פיתוח הקוד מופיע בתיבת הפיתוח.
 `OTP_CHANNEL=fake` בפיתוח בלבד. ערוץ מסחרי (WhatsApp authentication template / SMS) – החלטה לפני השקה; מימוש חדש של `IdentityDeliveryProvider` ב-`registry.ts`.
