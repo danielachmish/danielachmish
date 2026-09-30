@@ -76,16 +76,21 @@ export async function grantFamilyAccess(tx: Tx, tenantId: string, actor: Actor, 
 }
 
 export async function listCongregants(tx: Tx, search?: string) {
-  const q = search?.trim();
-  const digits = q?.replace(/\D/g, "").replace(/^0/, "");
+  // Every word must match the first name, last name or phone – so "משה כהן" and "כהן משה" both work.
+  const words = (search ?? "").trim().split(/\s+/).filter(Boolean).slice(0, 5);
   const rows = await tx.congregant.findMany({
-    where: q
+    where: words.length
       ? {
-          OR: [
-            { firstName: { contains: q, mode: "insensitive" } },
-            { lastName: { contains: q, mode: "insensitive" } },
-            ...(digits && digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
-          ],
+          AND: words.map((w) => {
+            const digits = w.replace(/\D/g, "").replace(/^0/, "");
+            return {
+              OR: [
+                { firstName: { contains: w, mode: "insensitive" as const } },
+                { lastName: { contains: w, mode: "insensitive" as const } },
+                ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
+              ],
+            };
+          }),
         }
       : undefined,
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

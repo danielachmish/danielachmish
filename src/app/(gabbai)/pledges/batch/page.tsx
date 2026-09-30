@@ -1,6 +1,6 @@
 import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
-import { BatchEntry } from "@/components/gabbai/batch-entry";
+import { BatchEntryClient as BatchEntry } from "@/components/gabbai/batch-client";
 
 export default async function BatchPage() {
   const g = await requireGabbai();

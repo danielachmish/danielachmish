@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { batchPledgesAction } from "@/app/(gabbai)/actions";
 import { Alert, Button, Field, Input } from "../ui";
 
@@ -8,27 +8,23 @@ const blank = (): Row => ({ key: crypto.randomUUID(), person: "", personId: "", 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
 
 export function BatchEntry({ people, draftKey }: { people: { id: string; name: string }[]; draftKey: string }) {
-  const [date, setDate] = useState(today);
-  const [rows, setRows] = useState<Row[]>(() => [blank()]);
+  // Rendered client-only (batch-client.tsx): the device-local draft is read during initialisation.
+  const [draft] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(draftKey) ?? "null") as { date: string; rows: Row[] } | null;
+    } catch {
+      return null;
+    }
+  });
+  const [date, setDate] = useState(() => draft?.date ?? today());
+  const [rows, setRows] = useState<Row[]>(() => (draft?.rows?.length ? draft.rows : [blank()]));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [extra, setExtra] = useState(false);
-  const loaded = useRef(false);
   const byName = useMemo(() => new Map(people.map((p) => [p.name, p.id])), [people]);
 
   // Local draft (per device). Not a database record until saved.
   useEffect(() => {
-    try {
-      const d = JSON.parse(localStorage.getItem(draftKey) ?? "null") as { date: string; rows: Row[] } | null;
-      if (d?.rows?.length) {
-        setDate(d.date);
-        setRows(d.rows);
-      }
-    } catch {}
-    loaded.current = true;
-  }, [draftKey]);
-  useEffect(() => {
-    if (!loaded.current) return;
     try {
       const pending = rows.filter((r) => r.status !== "saved" && (r.person || r.amount));
       if (pending.length) localStorage.setItem(draftKey, JSON.stringify({ date, rows }));

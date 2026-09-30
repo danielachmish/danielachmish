@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/server/auth/client";
 import { Alert, Button, Field, Input } from "@/components/ui";
 
 export function LoginForm({ notice }: { notice?: string }) {
+  const router = useRouter();
   const [err, setErr] = useState<string | null>(notice ?? null);
   const [busy, setBusy] = useState(false);
   return (
@@ -27,7 +29,8 @@ export function LoginForm({ notice }: { notice?: string }) {
           );
           return;
         }
-        window.location.href = "/";
+        router.replace("/");
+        router.refresh();
       }}
     >
       <Field label="דוא״ל"><Input name="email" type="email" dir="ltr" autoComplete="username" required /></Field>

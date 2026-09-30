@@ -183,7 +183,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
 
 function Summary({ label, agorot, tone = "" }: { label: string; agorot: number; tone?: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center" data-testid={`summary-${label}`}>
       <p className="text-xs text-slate-500">{label}</p>
       <Money agorot={agorot} className={`text-lg font-bold ${tone}`} />
     </div>

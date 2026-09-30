@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+# Runs entirely with fake providers: no real charges, no messages, no paid SaaS.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Create DB roles and databases
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/db/init-roles.sql
+          for db in synagogue synagogue_test; do
+            psql -h localhost -U postgres -c "CREATE DATABASE $db OWNER synagogue_owner"
+            psql -h localhost -U postgres -d $db -c "REVOKE ALL ON SCHEMA public FROM PUBLIC; ALTER SCHEMA public OWNER TO synagogue_owner; GRANT USAGE ON SCHEMA public TO synagogue_app;"
+          done
+      - name: Environment files
+        run: |
+          KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
+          SEC=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+          sed -e "s|^APP_ENCRYPTION_KEY=|APP_ENCRYPTION_KEY=$KEY|" -e "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$SEC|" .env.example > .env
+          sed -e "s|/synagogue$|/synagogue_test|" .env > .env.test
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run test:integration
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results/screens
