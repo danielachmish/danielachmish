@@ -13,8 +13,8 @@
 |---|---|
 | `npm run lint` | נקי |
 | `npm run typecheck` | נקי |
-| `npm run test:unit` + `test:integration` | 166/166 (עדכון אחרון) |
-| `npm run test:e2e` | 28/28 (Chromium, שרת dev + worker אמיתי) |
+| `npm run test:unit` + `test:integration` | 179/179 (עדכון אחרון) |
+| `npm run test:e2e` | 31/31 (Chromium, שרת dev + worker אמיתי) |
 | `npm run build` | הצליח |
 | `scripts/restore-check.sh` | טביעת אצבע זהה |
 | `next start` (ייצור) | `/dev/*` → 404, `Cache-Control: private, no-store`, `Referrer-Policy: no-referrer` |
@@ -25,6 +25,10 @@
 - דוחות (גבייה חודשית, גיל חובות, לפי סוג, בעלי חוב), יומן פעולות, ייבוא נדרים, התאמה מול דוח סליקה.
 - עמדת ניהול: ברירות מחדל לבתי כנסת חדשים, תקינות מערכת (ספירות בלבד).
 - התקנה למסך הבית (PWA), דוא"ל דרך Resend, קוד אימות בוואטסאפ – מוכנים להפעלה עם מפתחות.
+- "שליחה מהוואטסאפ שלי" (wa.me) מכרטיס מתפלל ומעמוד התזכורות – ללא חשבון עסקי.
+- קודי אימות ב-SMS דרך Twilio (`OTP_CHANNEL=sms`); בדמו רק למספרים ב-`DEMO_SMS_ALLOW`.
+- חיבור וואטסאפ עסקי בלחיצה (Embedded Signup) + יצירת 3 תבניות אוטומטית. מדריך: `docs/WHATSAPP_AND_SMS_SETUP.md`.
+- קישורים אישיים אינם נשמרים בהיסטוריית ההודעות.
 - פריסת הדגמה ב-Vercel ללא הגדרות (סודות נגזרים מכתובת המסד) – פעילה ב-https://synagogue-saas.vercel.app.
 
 ## שלב נוכחי
@@ -33,7 +37,7 @@
 ## הפעולה הבאה
 1. לאמת את חוזה PayPlus מול התיעוד (docs/PROVIDER_SETUP.md §PayPlus) ולהריץ מול sandbox – ממתין לתיעוד/חשבון מהבעלים.
 2. לברר עם אילו חברות סליקה בתי הכנסת עובדים ולכתוב להן מתאמים (קטלוג: src/server/integrations/catalog.ts).
-3. חשבון WhatsApp Business ואישור תבניות (תזכורת + קוד אימות).
+3. הבעלים: חשבון Twilio ומשתני סביבה; אפליקציית Meta + Embedded Signup לפי `docs/WHATSAPP_AND_SMS_SETUP.md`; אימות מול האתר הפרוס (לא נבדק מול Meta/Twilio אמיתיים – חסימת רשת).
 
 ## חסימות
 - אין גישה לתיעוד PayPlus מסביבת הפיתוח (חסימת רשת) ואין הרשאות sandbox.
