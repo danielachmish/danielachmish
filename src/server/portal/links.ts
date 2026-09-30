@@ -21,7 +21,8 @@ export async function issuePersonalLink(tx: Tx, tenantId: string, congregantId: 
   await tx.personalLink.create({
     data: { tenantId, congregantId, tokenHash: sha256(token), expiresAt: new Date(Date.now() + ttlDays * 86400_000), createdBy },
   });
-  return { token, url: `${process.env.APP_BASE_URL}/p/${token}` };
+  // Token travels in the URL fragment: never sent to the server, never logged, never in Referer.
+  return { token, url: `${process.env.APP_BASE_URL}/p#${token}` };
 }
 
 export async function revokeLinks(tx: Tx, congregantId: string) {

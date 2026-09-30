@@ -1,0 +1,89 @@
+"use client";
+import { useEffect, useState } from "react";
+import { landingAction, requestOtpAction, verifyOtpAction } from "./actions";
+import { Alert, Button, Field, Input } from "@/components/ui";
+
+// Personal link landing. The token is read from location.hash, so it never reaches server logs or other sites.
+export default function PortalLanding() {
+  const [token, setToken] = useState<string | null>(null);
+  const [info, setInfo] = useState<{ synagogueName: string; maskedPhone: string | null } | null>(null);
+  const [stage, setStage] = useState<"loading" | "start" | "code" | "invalid">("loading");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const t = window.location.hash.slice(1);
+    // Remove the token from the address bar / history once read.
+    history.replaceState(null, "", window.location.pathname);
+    if (!t) return setStage("invalid");
+    setToken(t);
+    landingAction(t).then((r) => {
+      if (r.ok) {
+        setInfo(r.data!);
+        setStage("start");
+      } else setStage("invalid");
+    }, () => setStage("invalid"));
+  }, []);
+
+  if (stage === "loading") return <Shell><p>טוען…</p></Shell>;
+  if (stage === "invalid")
+    return (
+      <Shell>
+        <Alert tone="error">הקישור אינו בתוקף. אפשר לבקש קישור חדש מהגבאי או לשלוח ״1״ בוואטסאפ של בית הכנסת.</Alert>
+      </Shell>
+    );
+  return (
+    <Shell title={info?.synagogueName}>
+      {stage === "start" && (
+        <div className="space-y-3">
+          <p>לצפייה ביתרה ובתשלום נשלח קוד אימות לטלפון {info?.maskedPhone ? <span className="num">{info.maskedPhone}</span> : "הרשום"}.</p>
+          <Button
+            className="w-full"
+            disabled={busy || !info?.maskedPhone}
+            onClick={async () => {
+              setBusy(true);
+              const r = await requestOtpAction(token!).catch(() => ({ ok: false as const, error: "אין חיבור. נסו שוב." }));
+              setBusy(false);
+              if (!r.ok) return setMsg({ ok: false, text: r.error });
+              setStage("code");
+              setMsg(null);
+            }}
+          >
+            שליחת קוד
+          </Button>
+          {!info?.maskedPhone && <Alert tone="warn">לכרטיס אין טלפון רשום. פנו לגבאי.</Alert>}
+        </div>
+      )}
+      {stage === "code" && (
+        <form
+          className="space-y-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const code = String(new FormData(e.currentTarget).get("code"));
+            setBusy(true);
+            const r = await verifyOtpAction(token!, code).catch(() => ({ ok: false as const, error: "אין חיבור. נסו שוב." }));
+            setBusy(false);
+            if (!r.ok) return setMsg({ ok: false, text: r.error });
+            window.location.replace("/me");
+          }}
+        >
+          <Field label="קוד בן 6 ספרות">
+            <Input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} dir="ltr" required autoFocus />
+          </Field>
+          <Button className="w-full" disabled={busy}>אימות</Button>
+          <Button type="button" variant="ghost" className="w-full" onClick={() => setStage("start")}>לא קיבלתי קוד</Button>
+        </form>
+      )}
+      {msg && <Alert tone={msg.ok ? "success" : "error"}>{msg.text}</Alert>}
+    </Shell>
+  );
+}
+
+function Shell({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <main className="mx-auto max-w-md space-y-4 px-4 py-8">
+      <h1 className="text-2xl font-bold">{title ?? "העמוד האישי"}</h1>
+      {children}
+    </main>
+  );
+}

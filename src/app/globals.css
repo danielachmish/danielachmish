@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9eaff;
+  --color-brand-600: #1d5fbf;
+  --color-brand-700: #184e9c;
+  --color-brand-900: #0f2e5c;
+  --font-sans: system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { @apply bg-slate-50 text-slate-900 antialiased; }
+/* Numbers and amounts keep LTR order inside RTL text. */
+.num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 3px solid var(--color-brand-600); outline-offset: 2px; }

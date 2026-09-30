@@ -1,0 +1,71 @@
+"use client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { manualPaymentAction, onboardAction, replaceGabbaiAction, resolveCaseAction, subscriptionStatusAction } from "./actions";
+import type { ActionResult } from "@/server/actions/result";
+import { Alert, Button, Field, Input, Select } from "@/components/ui";
+
+function useAct() {
+  const router = useRouter();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const act = async (fn: () => Promise<ActionResult<unknown>>) => {
+    const r = await fn().catch(() => ({ ok: false as const, error: "אין חיבור לשרת." }));
+    setMsg(r.ok ? { ok: true, text: r.message ?? "בוצע" } : { ok: false, text: r.error });
+    if (r.ok) router.refresh();
+  };
+  return { act, note: msg && <Alert tone={msg.ok ? "success" : "error"}>{msg.text}</Alert> };
+}
+
+export function OnboardForm() {
+  const { act, note } = useAct();
+  return (
+    <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); act(() => onboardAction({ name: String(f.get("name")), city: String(f.get("city")), gabbaiEmail: String(f.get("email")), gabbaiName: String(f.get("gname")) })); }}>
+      <Field label="שם בית הכנסת"><Input name="name" required /></Field>
+      <Field label="עיר"><Input name="city" /></Field>
+      <Field label="שם הגבאי הראשי"><Input name="gname" required /></Field>
+      <Field label="דוא״ל הגבאי"><Input name="email" type="email" dir="ltr" required /></Field>
+      <div className="flex items-center gap-3 sm:col-span-2"><Button>יצירה ושליחת הזמנה</Button>{note}</div>
+    </form>
+  );
+}
+
+export function SubscriptionControls({ tenantId, status }: { tenantId: string; status: string }) {
+  const { act, note } = useAct();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select className="w-44" defaultValue="" aria-label="שינוי מצב מנוי" onChange={(e) => e.target.value && act(() => subscriptionStatusAction(tenantId, e.target.value as "active"))}>
+        <option value="">שינוי מצב מנוי…</option>
+        {["active", "past_due", "grace", "suspended", "cancelled"].filter((s) => s !== status).map((s) => <option key={s} value={s}>{s}</option>)}
+      </Select>
+      {note}
+    </div>
+  );
+}
+
+export function ManualPaymentForm({ tenantId, invoiceId }: { tenantId: string; invoiceId: string }) {
+  const { act, note } = useAct();
+  return (
+    <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); act(() => manualPaymentAction(tenantId, invoiceId, String(new FormData(e.currentTarget).get("ref")))); }}>
+      <Input name="ref" className="w-40" placeholder="אסמכתה" required aria-label="אסמכתה" />
+      <Button variant="secondary">רישום תשלום ידני</Button>
+      {note}
+    </form>
+  );
+}
+
+export function ReplaceGabbaiForm({ tenantId }: { tenantId: string }) {
+  const { act, note } = useAct();
+  return (
+    <form className="grid gap-3 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); act(() => replaceGabbaiAction(tenantId, String(f.get("email")), String(f.get("name")), String(f.get("reason")))); }}>
+      <Field label="שם הגבאי החדש"><Input name="name" required /></Field>
+      <Field label="דוא״ל"><Input name="email" type="email" dir="ltr" required /></Field>
+      <Field label="סיבה ותיעוד"><Input name="reason" required /></Field>
+      <div className="flex items-center gap-3 sm:col-span-3"><Button variant="danger">החלפת גבאי ראשי</Button>{note}</div>
+    </form>
+  );
+}
+
+export function ResolveCase({ id }: { id: string }) {
+  const { act } = useAct();
+  return <Button variant="ghost" className="min-h-8 text-sm" onClick={() => act(() => resolveCaseAction(id))}>סגירה</Button>;
+}
