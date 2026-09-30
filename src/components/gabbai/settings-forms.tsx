@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { connectIntegrationAction, revokeSupportGrantAction, supportGrantAction, updateGeneralSettingsAction } from "@/app/(gabbai)/actions";
+import { revokeSupportGrantAction, supportGrantAction, updateGeneralSettingsAction } from "@/app/(gabbai)/actions";
 import type { ActionResult } from "@/server/actions/result";
 import { Alert, Button, Field, Input, Select } from "../ui";
 
@@ -33,57 +33,6 @@ export function GeneralSettings({ name }: { name: string }) {
       <Field label="שם בית הכנסת"><Input name="name" defaultValue={name} required /></Field>
       <Button disabled={busy}>שמירה</Button>
       {note}
-    </form>
-  );
-}
-
-export function IntegrationForm({ kind, mode, hasActive }: { kind: "payment" | "messaging"; mode: string; hasActive: boolean }) {
-  const { act, busy, note } = useAct();
-  const provider = mode === "fake" ? "fake" : kind === "payment" ? "payplus" : "whatsapp_cloud";
-  const fields: [string, string][] =
-    provider === "fake"
-      ? kind === "payment" ? [["webhookSecret", "סוד חתימה (דמה)"]] : []
-      : provider === "payplus"
-        ? [["apiKey", "API key"], ["secretKey", "Secret key"], ["paymentPageUid", "Payment page UID"]]
-        : [["accessToken", "Access token"]];
-  return (
-    <form
-      className="grid gap-3 sm:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const f = new FormData(e.currentTarget);
-        const secrets: Record<string, string> = {};
-        for (const [k] of fields) if (String(f.get(k) ?? "")) secrets[k] = String(f.get(k));
-        act(() =>
-          connectIntegrationAction({
-            kind,
-            provider,
-            externalAccountId: String(f.get("externalAccountId")),
-            displayName: String(f.get("displayName") ?? ""),
-            secrets,
-            confirmReplace: f.get("confirmReplace") === "on",
-          }),
-        );
-      }}
-    >
-      <Field label={kind === "payment" ? "מזהה מסוף / חשבון מקבל" : "מזהה מספר וואטסאפ"}>
-        <Input name="externalAccountId" dir="ltr" required autoComplete="off" />
-      </Field>
-      <Field label="שם לתצוגה"><Input name="displayName" /></Field>
-      {fields.map(([k, label]) => (
-        <Field key={k} label={label}><Input name={k} type="password" dir="ltr" autoComplete="off" required /></Field>
-      ))}
-      {hasActive && (
-        <label className="flex items-start gap-2 text-sm sm:col-span-2">
-          <input type="checkbox" name="confirmReplace" className="mt-1 size-5" />
-          <span>אני מאשר/ת החלפת החשבון הקיים. עסקאות שכבר התחילו יישארו משויכות לחשבון המקורי.</span>
-        </label>
-      )}
-      <div className="flex items-center gap-3 sm:col-span-2">
-        <Button disabled={busy}>{hasActive ? "החלפת חיבור" : "חיבור"}</Button>
-        {note}
-      </div>
-      {mode === "fake" && <p className="text-xs text-slate-500 sm:col-span-2">סביבת פיתוח: חיבור דמה בלבד, ללא כסף אמיתי וללא שליחת הודעות.</p>}
     </form>
   );
 }

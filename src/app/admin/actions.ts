@@ -12,6 +12,7 @@ import { onboardTenant, replaceHeadGabbai } from "@/server/admin/tenants";
 import { recordManualSubscriptionPayment, setSubscriptionStatus } from "@/server/billing/subscriptions";
 import type { SubStatus } from "@/server/billing/policy";
 import { withContext } from "@/server/db/context";
+import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
 
 /** Creates (or finds) the gabbai account and sends a password-setup link. The admin never knows the password. */
 async function ensureGabbaiUser(email: string, name: string) {
@@ -71,4 +72,24 @@ export async function resolveCaseAction(id: string) {
     );
     revalidatePath("/admin");
   });
+}
+
+// ───────── connecting a synagogue's own accounts on its behalf (credentials write-only, audited) ─────────
+export async function adminConnectIntegrationAction(tenantId: string, input: ConnectInput) {
+  return run(async () => {
+    const a = await requireAdmin();
+    const id = z.uuid().parse(tenantId);
+    await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, (tx) => connectIntegration(tx, id, a.actor, input));
+    revalidatePath(`/admin/tenants/${id}`);
+    revalidatePath("/admin");
+  }, "החיבור נשמר עבור בית הכנסת.");
+}
+
+export async function adminDisconnectIntegrationAction(tenantId: string, kind: "payment" | "messaging") {
+  return run(async () => {
+    const a = await requireAdmin();
+    const id = z.uuid().parse(tenantId);
+    await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, (tx) => disconnectIntegration(tx, id, a.actor, kind));
+    revalidatePath(`/admin/tenants/${id}`);
+  }, "החיבור נותק.");
 }

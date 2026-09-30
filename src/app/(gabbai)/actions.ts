@@ -14,7 +14,7 @@ import { bulkReminderPreview, cancelScheduledReminder, rescheduleAfterPolicyChan
 import { createCongregant, grantFamilyAccess, recordConsent, updateCongregant, type CongregantInput } from "@/server/gabbai/congregants";
 import { commitCongregantImport, parseDate, previewCongregantImport, type ColumnMap } from "@/server/gabbai/import-export";
 import { issuePersonalLink, revokeLinks } from "@/server/portal/links";
-import { encryptJson } from "@/server/crypto";
+import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
 import { audit } from "@/server/audit";
 import { prisma } from "@/server/db/client";
 import { after } from "next/server";
@@ -324,51 +324,21 @@ export async function applyCreditAction(congregantId: string) {
   }, "הזכות הוחלה על הנדרים הפתוחים.");
 }
 
-/**
- * Connects a payment or messaging account. The environment is fixed by the deployment's PROVIDER_MODE.
- * Credentials are encrypted before they reach the DB. Replacing an account keeps the old one as
- * "replaced" so pending transactions still resolve against their original account.
- */
-export async function connectIntegrationAction(input: {
-  kind: "payment" | "messaging";
-  provider: string;
-  externalAccountId: string;
-  displayName?: string;
-  secrets: Record<string, string>;
-  confirmReplace: boolean;
-}) {
+/** The synagogue connects its own receiving account (see src/server/integrations/connect.ts). */
+export async function connectIntegrationAction(input: ConnectInput) {
   return run(async () => {
     const g = await requireGabbai();
-    const env = process.env.PROVIDER_MODE ?? "fake";
-    const allowed = input.kind === "payment" ? (env === "fake" ? ["fake"] : ["payplus"]) : env === "fake" ? ["fake"] : ["whatsapp_cloud"];
-    if (!allowed.includes(input.provider)) throw new DomainError("provider_not_allowed", "ספק זה אינו זמין בסביבה הנוכחית.");
-    const ext = input.externalAccountId.trim();
-    if (!/^[A-Za-z0-9_.:-]{2,100}$/.test(ext)) throw new DomainError("bad_account", "מזהה החשבון אינו תקין.");
-    await withContext(g.ctx, async (tx) => {
-      const current = await tx.integrationAccount.findFirst({ where: { kind: input.kind, status: { in: ["active", "error"] } } });
-      if (current && !input.confirmReplace)
-        throw new DomainError("confirm_replace", "כבר קיים חיבור פעיל. החלפת חשבון מקבל מחייבת אישור מפורש.", 409);
-      const created = await tx.integrationAccount.create({
-        data: {
-          tenantId: g.tenantId,
-          kind: input.kind,
-          provider: input.provider,
-          environment: env,
-          externalAccountId: ext,
-          displayName: input.displayName?.trim() || null,
-          encryptedSecrets: Object.keys(input.secrets).length ? encryptJson(input.secrets) : null,
-          verifiedAt: new Date(),
-          verifiedBy: g.userId,
-        },
-      });
-      if (current) await tx.integrationAccount.update({ where: { id: current.id }, data: { status: "replaced", replacedById: created.id } });
-      await audit(tx, g.tenantId, g.actor, current ? "integration.replace" : "integration.connect", { type: "IntegrationAccount", id: created.id }, {
-        kind: input.kind,
-        provider: input.provider,
-      });
-    });
+    await withContext(g.ctx, (tx) => connectIntegration(tx, g.tenantId, g.actor, input));
     revalidatePath("/settings");
   }, "החיבור נשמר.");
+}
+
+export async function disconnectIntegrationAction(kind: "payment" | "messaging") {
+  return run(async () => {
+    const g = await requireGabbai();
+    await withContext(g.ctx, (tx) => disconnectIntegration(tx, g.tenantId, g.actor, kind));
+    revalidatePath("/settings");
+  }, "החיבור נותק. תשלומים שכבר התחילו ימשיכו להיקלט.");
 }
 
 export async function supportGrantAction(input: { adminEmail: string; scope: "read_ledger" | "read_integrations"; hours: number; reason: string }) {

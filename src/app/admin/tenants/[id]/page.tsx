@@ -6,6 +6,9 @@ import { cardSummary } from "@/server/ledger/balance";
 import { audit } from "@/server/audit";
 import { Alert, Card, LinkButton, Money } from "@/components/ui";
 import { ReplaceGabbaiForm } from "../../forms";
+import { IntegrationPanel } from "@/components/integration-panel";
+import { integrationStatus } from "@/server/integrations/connect";
+import { providersFor } from "@/server/integrations/catalog";
 
 export default async function AdminTenant({ params }: { params: Promise<{ id: string }> }) {
   const a = await requireAdmin();
@@ -13,6 +16,8 @@ export default async function AdminTenant({ params }: { params: Promise<{ id: st
   if (!z.uuid().safeParse(id).success) notFound();
   const tenant = await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => tx.tenant.findUnique({ where: { id } }));
   if (!tenant) notFound();
+  const integrations = await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, (tx) => integrationStatus(tx));
+  const mode = process.env.PROVIDER_MODE ?? "fake";
   // Congregant data only with an active, unexpired grant from the head gabbai. Every view is audited.
   const view = await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, async (tx) => {
     const grant = await tx.supportGrant.findFirst({ where: { granteeUserId: a.userId, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { expiresAt: "desc" } });
@@ -25,6 +30,13 @@ export default async function AdminTenant({ params }: { params: Promise<{ id: st
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
       <LinkButton href="/admin" variant="secondary">חזרה</LinkButton>
       <h1 className="text-2xl font-bold">{tenant.name}</h1>
+      <Card title="חיבור סליקה (החשבון של בית הכנסת)">
+        <p className="mb-3 text-sm text-slate-600">הכסף של המתפללים נכנס ישירות לחשבון של בית הכנסת. אפשר לחבר כאן בשמו; הגבאי רואה את החיבור וכל שינוי מתועד.</p>
+        <IntegrationPanel kind="payment" providers={providersFor("payment", mode)} current={integrations.payment} target={{ type: "admin", tenantId: id }} />
+      </Card>
+      <Card title="חיבור וואטסאפ של בית הכנסת">
+        <IntegrationPanel kind="messaging" providers={providersFor("messaging", mode)} current={integrations.messaging} target={{ type: "admin", tenantId: id }} />
+      </Card>
       <Card title="החלפת גבאי ראשי">
         <ReplaceGabbaiForm tenantId={id} />
       </Card>

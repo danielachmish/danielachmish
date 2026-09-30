@@ -1,7 +1,10 @@
 import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
 import { Badge, Card, LinkButton, fmtDate } from "@/components/ui";
-import { GeneralSettings, IntegrationForm, SupportGrantForm } from "@/components/gabbai/settings-forms";
+import { GeneralSettings, SupportGrantForm } from "@/components/gabbai/settings-forms";
+import { IntegrationPanel } from "@/components/integration-panel";
+import { integrationStatus } from "@/server/integrations/connect";
+import { providersFor } from "@/server/integrations/catalog";
 import { BehaviourForm, ReminderPolicyForm } from "@/components/gabbai/policy-forms";
 import { parseSettings } from "@/server/settings";
 
@@ -11,12 +14,11 @@ export default async function Settings() {
   const g = await requireGabbai();
   const d = await withContext(g.ctx, async (tx) => ({
     tenant: await tx.tenant.findUniqueOrThrow({ where: { id: g.tenantId } }),
-    integrations: await tx.integrationAccount.findMany({ orderBy: { createdAt: "desc" } }),
+    integrations: await integrationStatus(tx),
     sub: await tx.saaSSubscription.findUnique({ where: { tenantId: g.tenantId } }),
     grants: await tx.supportGrant.findMany({ where: { revokedAt: null, expiresAt: { gt: new Date() } } }),
   }));
   const mode = process.env.PROVIDER_MODE ?? "fake";
-  const active = (k: string) => d.integrations.find((i) => i.kind === k && (i.status === "active" || i.status === "error"));
   return (
     <>
       <h1 className="text-2xl font-bold">הגדרות</h1>
@@ -51,23 +53,11 @@ export default async function Settings() {
         </Card>
       </div>
       <div id="integrations" className="scroll-mt-28 space-y-4">
-      {(["payment", "messaging"] as const).map((k) => {
-        const a = active(k);
-        return (
-          <Card key={k} title={k === "payment" ? "חיבור סליקה (החשבון של בית הכנסת)" : "חיבור וואטסאפ רשמי"}>
-            {a ? (
-              <p className="mb-3 text-sm">
-                מחובר: <span className="num">{a.displayName ?? a.externalAccountId}</span> · {a.provider} · סביבה {a.environment}{" "}
-                <Badge tone={a.status === "active" ? "green" : "red"}>{a.status === "active" ? "תקין" : "תקלה"}</Badge>
-                {a.lastError && <span className="block text-red-700">תקלה אחרונה: {a.lastError}</span>}
-              </p>
-            ) : (
-              <p className="mb-3 text-sm text-slate-600">לא מחובר.</p>
-            )}
-            <IntegrationForm kind={k} mode={mode} hasActive={!!a} />
-          </Card>
-        );
-      })}
+      {(["payment", "messaging"] as const).map((k) => (
+        <Card key={k} title={k === "payment" ? "חיבור סליקה (החשבון של בית הכנסת)" : "חיבור וואטסאפ רשמי"}>
+          <IntegrationPanel kind={k} providers={providersFor(k, mode)} current={d.integrations[k]} target={{ type: "gabbai" }} />
+        </Card>
+      ))}
       </div>
       <Card title="מנוי">
         {d.sub ? (

@@ -20,6 +20,11 @@ async function user(email: string, name: string, platformRole = "none") {
   if (!u) {
     await auth.api.signUpEmail({ body: { email, name, password: PASSWORD } });
     u = await prisma.user.findUniqueOrThrow({ where: { email } });
+  } else if (process.env.DEMO_PASSWORD) {
+    // Keep demo accounts in sync with the configured password (re-hashed with Better Auth's own hasher).
+    const ctx = await auth.$context;
+    const hash = await ctx.password.hash(PASSWORD);
+    await prisma.account.updateMany({ where: { userId: u.id, providerId: "credential" }, data: { password: hash } });
   }
   return prisma.user.update({ where: { id: u.id }, data: { emailVerified: true, platformRole } });
 }
