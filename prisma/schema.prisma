@@ -613,3 +613,11 @@ model DevFakeRecord {
   @@unique([kind, key])
   @@index([kind, createdAt])
 }
+
+// Platform-wide values set by the platform owner (e.g. defaults applied to every newly onboarded synagogue).
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}

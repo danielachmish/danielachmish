@@ -45,7 +45,15 @@ export type ReminderPolicy = {
   template: string | null;
 };
 
-export function ReminderPolicyForm({ initial, synagogueName }: { initial: ReminderPolicy; synagogueName: string }) {
+export function ReminderPolicyForm({
+  initial,
+  synagogueName,
+  save: saveFn = updateReminderPolicyAction,
+}: {
+  initial: ReminderPolicy;
+  synagogueName: string;
+  save?: (p: ReminderPolicy) => Promise<{ ok: boolean; error?: string; message?: string }>;
+}) {
   const [p, setP] = useState(initial);
   const [custom, setCustom] = useState(!!initial.template);
   const { busy, save, note } = useSave();
@@ -68,7 +76,7 @@ export function ReminderPolicyForm({ initial, synagogueName }: { initial: Remind
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        save(() => updateReminderPolicyAction({ ...p, template: custom ? p.template : null }));
+        save(() => saveFn({ ...p, template: custom ? p.template : null }));
       }}
     >
       <Toggle
@@ -139,7 +147,13 @@ export function ReminderPolicyForm({ initial, synagogueName }: { initial: Remind
   );
 }
 
-export function BehaviourForm({ initial }: { initial: TenantSettings }) {
+export function BehaviourForm({
+  initial,
+  save: saveFn = updateBehaviourSettingsAction,
+}: {
+  initial: TenantSettings;
+  save?: (s: TenantSettings) => Promise<{ ok: boolean; error?: string; message?: string }>;
+}) {
   const [s, setS] = useState(initial);
   const { busy, save, note } = useSave();
   const set = (patch: Partial<TenantSettings>) => setS((x) => ({ ...x, ...patch }));
@@ -148,7 +162,7 @@ export function BehaviourForm({ initial }: { initial: TenantSettings }) {
       className="space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
-        save(() => updateBehaviourSettingsAction(s));
+        save(() => saveFn(s));
       }}
     >
       <section className="space-y-2">

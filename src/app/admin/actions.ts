@@ -13,6 +13,8 @@ import { recordManualSubscriptionPayment, setSubscriptionStatus } from "@/server
 import type { SubStatus } from "@/server/billing/policy";
 import { withContext } from "@/server/db/context";
 import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
+import { saveReminderDefaults, saveSettingsDefaults, type ReminderDefaults } from "@/server/admin/defaults";
+import type { TenantSettings } from "@/server/settings";
 
 /** Creates (or finds) the gabbai account and sends a password-setup link. The admin never knows the password. */
 async function ensureGabbaiUser(email: string, name: string) {
@@ -92,4 +94,21 @@ export async function adminDisconnectIntegrationAction(tenantId: string, kind: "
     await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, (tx) => disconnectIntegration(tx, id, a.actor, kind));
     revalidatePath(`/admin/tenants/${id}`);
   }, "החיבור נותק.");
+}
+
+// ───────── defaults for newly onboarded synagogues ─────────
+export async function saveReminderDefaultsAction(input: ReminderDefaults) {
+  return run(async () => {
+    const a = await requireAdmin();
+    await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveReminderDefaults(tx, a.userId, input));
+    revalidatePath("/admin/defaults");
+  }, "ברירות המחדל לתזכורות נשמרו. הן יחולו על בתי כנסת שיצטרפו מעכשיו.");
+}
+
+export async function saveSettingsDefaultsAction(input: Partial<TenantSettings>) {
+  return run(async () => {
+    const a = await requireAdmin();
+    await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveSettingsDefaults(tx, a.userId, input));
+    revalidatePath("/admin/defaults");
+  }, "ברירות המחדל נשמרו. הן יחולו על בתי כנסת שיצטרפו מעכשיו.");
 }

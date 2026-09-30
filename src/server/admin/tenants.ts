@@ -2,13 +2,16 @@ import { withContext, type Actor } from "../db/context";
 import { planConfig } from "../config";
 import { audit } from "../audit";
 import { DomainError } from "../errors";
+import { platformDefaults, tenantDataFromDefaults } from "./defaults";
 
 /** Onboarding: creates the synagogue, its trial subscription and links the head gabbai user. */
 export async function onboardTenant(admin: Actor, input: { name: string; city?: string; headGabbaiUserId: string }) {
   if (!input.name.trim()) throw new DomainError("name_required", "יש להזין שם בית כנסת.");
   const cfg = planConfig();
   return withContext({ kind: "platform_admin", userId: admin.id }, async (tx) => {
-    const tenant = await tx.tenant.create({ data: { name: input.name.trim(), city: input.city?.trim() || null } });
+    // New synagogues start from the platform owner's defaults; the gabbai can change them later.
+    const defaults = await platformDefaults(tx);
+    const tenant = await tx.tenant.create({ data: { name: input.name.trim(), city: input.city?.trim() || null, ...tenantDataFromDefaults(defaults) } });
     await tx.saaSSubscription.create({ data: { tenantId: tenant.id, status: "trial", trialEndsAt: new Date(Date.now() + cfg.trialDays * 86400_000) } });
     await tx.membership.create({ data: { tenantId: tenant.id, userId: input.headGabbaiUserId, role: "head_gabbai" } });
     await audit(tx, tenant.id, admin, "tenant.onboard", { type: "Tenant", id: tenant.id });
@@ -54,6 +57,26 @@ export async function adminOverview(adminId: string) {
     });
     const cases = await tx.supportCase.findMany({ where: { status: "open" }, orderBy: { createdAt: "desc" }, take: 100 });
     const invoices = await tx.saaSInvoice.findMany({ where: { status: "open" }, orderBy: { createdAt: "desc" } });
-    return { tenants, integrations, cases, invoices, quota: planConfig().monthlyMessageQuota };
+    // Counts only (SECURITY DEFINER function) – no congregant data reaches the admin screen.
+    const health = await tx.$queryRaw<
+      { tenant_id: string; pending_events: bigint; exception_events: bigint; stale_attempts: bigint; unknown_messages: bigint; failed_messages: bigint; open_exception_tasks: bigint; last_event_at: Date | null }[]
+    >`SELECT * FROM platform_health()`;
+    return {
+      tenants,
+      integrations,
+      cases,
+      invoices,
+      quota: planConfig().monthlyMessageQuota,
+      health: health.map((h) => ({
+        tenantId: h.tenant_id,
+        pendingEvents: Number(h.pending_events),
+        exceptionEvents: Number(h.exception_events),
+        staleAttempts: Number(h.stale_attempts),
+        unknownMessages: Number(h.unknown_messages),
+        failedMessages: Number(h.failed_messages),
+        openExceptionTasks: Number(h.open_exception_tasks),
+        lastEventAt: h.last_event_at,
+      })),
+    };
   });
 }

@@ -17,6 +17,36 @@ export default async function Admin() {
         <SignOutButton />
       </div>
       <p className="text-sm text-slate-600">מסך זה אינו מציג נתוני מתפללים. גישה לנתוני בית כנסת מתאפשרת רק בהרשאה זמנית של הגבאי.</p>
+      <div className="flex flex-wrap gap-2">
+        <Link href="/admin/defaults" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-100">ברירות מחדל לבתי כנסת חדשים</Link>
+      </div>
+      <Card title="תקינות המערכת">
+        {o.health.length === 0 ? <Empty>אין בתי כנסת.</Empty> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-slate-500">
+                <tr className="text-right"><th className="p-2">בית כנסת</th><th className="p-2">אירועים ממתינים</th><th className="p-2">חריגי סליקה (30 יום)</th><th className="p-2">תשלומים פתוחים מעל שעה</th><th className="p-2">הודעות לא ידועות / נכשלו (7 ימים)</th><th className="p-2">משימות חריג פתוחות</th></tr>
+              </thead>
+              <tbody>
+                {o.health.map((h) => {
+                  const bad = h.pendingEvents > 0 || h.openExceptionTasks > 0 || h.unknownMessages > 0;
+                  return (
+                    <tr key={h.tenantId} className="border-t border-slate-100">
+                      <td className="p-2">{o.tenants.find((t) => t.id === h.tenantId)?.name} {bad ? <Badge tone="amber">דורש תשומת לב</Badge> : <Badge tone="green">תקין</Badge>}</td>
+                      <td className="p-2 num">{h.pendingEvents}</td>
+                      <td className="p-2 num">{h.exceptionEvents}</td>
+                      <td className="p-2 num">{h.staleAttempts}</td>
+                      <td className="p-2 num">{h.unknownMessages} / {h.failedMessages}</td>
+                      <td className="p-2 num">{h.openExceptionTasks}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-slate-500">ספירות בלבד – ללא שמות, טלפונים או סכומים. ״אירועים ממתינים״ מעל 0 לאורך זמן מעיד שעבודות הרקע לא רצות.</p>
+      </Card>
       <Card title={`בתי כנסת (${o.tenants.length})`}>
         {o.tenants.length === 0 ? <Empty>אין בתי כנסת.</Empty> : (
           <ul className="divide-y divide-slate-100">
