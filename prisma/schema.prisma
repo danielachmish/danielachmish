@@ -1,0 +1,590 @@
+// Synagogue SaaS data model.
+// Conventions:
+//   * All money is stored as integer agorot (Int) with an explicit currency (ILS only in v1).
+//   * Every business table carries tenantId and is protected by PostgreSQL RLS
+//     (see prisma/migrations/*_rls/migration.sql). The runtime DB role cannot bypass RLS.
+//   * Ledger rows (Allocation, Adjustment, Refund, Payment) are append-only. Balances are computed.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Identity (Better Auth tables) ─────────────────────────────
+
+model user {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  platformRole  String    @default("none") // none | admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  sessions      session[]
+  accounts      account[]
+  memberships   Membership[]
+}
+
+model session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([identifier])
+}
+
+model rateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
+// ───────────────────────────── Tenancy ─────────────────────────────
+
+model Tenant {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  city      String?
+  timezone  String   @default("Asia/Jerusalem")
+  // Reminder policy (days) – configurable per tenant, defaults per product plan.
+  reminderFirstDelayDays Int @default(7)
+  reminderIntervalDays   Int @default(30)
+  createdAt DateTime @default(now())
+
+  memberships   Membership[]
+  subscription  SaaSSubscription?
+}
+
+model Membership {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @db.Uuid
+  userId    String
+  role      String   @default("head_gabbai") // head_gabbai (only role in v1)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  endedAt   DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   user   @relation(fields: [userId], references: [id])
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  // Partial unique index "one active head gabbai per tenant" is created in SQL migration.
+}
+
+// Time-limited support access granted by the head gabbai to platform support.
+model SupportGrant {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @db.Uuid
+  grantedBy   String
+  granteeUserId String
+  scope       String    // read_ledger | read_integrations
+  reason      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([granteeUserId])
+}
+
+// ───────────────────────────── Congregants ─────────────────────────────
+
+model Congregant {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @db.Uuid
+  firstName    String
+  lastName     String
+  phone        String?  // E.164, optional for card management, required for messaging
+  email        String?
+  externalRef  String?  // id from imported spreadsheet, used to prevent duplicate imports
+  notes        String?
+  messagingOptOut   Boolean   @default(false)
+  messagingOptOutAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  pledges      Pledge[]
+  payments     Payment[]
+  paymentRequests PaymentRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, externalRef])
+  @@index([tenantId, phone])
+  @@index([tenantId, lastName])
+}
+
+// Phones allowed to view/pay a card (card owner, or explicit family permission).
+model ContactPermission {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  congregantId String    @db.Uuid
+  phone        String
+  relation     String    @default("self") // self | family
+  grantedBy    String
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  @@index([tenantId, phone])
+  @@index([tenantId, congregantId])
+}
+
+// Messaging consent history. The latest row per (congregant, channel) is the current state.
+model Consent {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @db.Uuid
+  congregantId String   @db.Uuid
+  channel      String   @default("whatsapp")
+  granted      Boolean
+  source       String   // gabbai_recorded | whatsapp_optin | whatsapp_stop | portal
+  recordedBy   String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, congregantId, channel, createdAt])
+}
+
+// ───────────────────────────── Ledger ─────────────────────────────
+
+model Pledge {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @db.Uuid
+  congregantId  String    @db.Uuid
+  kind          String    @default("pledge") // pledge | opening_balance
+  amountAgorot  Int       // original amount; effective = amount + sum(adjustments)
+  currency      String    @default("ILS")
+  pledgeDate    DateTime  @db.Date
+  dueDate       DateTime? @db.Date
+  category      String?
+  description   String?
+  internalNote  String?
+  clientOpId    String?   // idempotency key from the client form
+  createdBy     String
+  createdAt     DateTime  @default(now())
+
+  congregant    Congregant   @relation(fields: [tenantId, congregantId], references: [tenantId, id])
+  adjustments   Adjustment[]
+  allocations   Allocation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, congregantId, id])
+  @@unique([tenantId, clientOpId])
+  @@index([tenantId, congregantId, pledgeDate])
+}
+
+model Adjustment {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  pledgeId    String   @db.Uuid
+  deltaAgorot Int
+  reason      String
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  pledge Pledge @relation(fields: [tenantId, pledgeId], references: [tenantId, id])
+
+  @@index([tenantId, pledgeId])
+}
+
+model IntegrationAccount {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  tenantId          String    @db.Uuid
+  kind              String    // payment | messaging
+  provider          String    // fake | payplus | whatsapp_cloud
+  environment       String    // fake | sandbox | live
+  externalAccountId String    // provider terminal / phone-number id used to route inbound events
+  displayName       String?
+  encryptedSecrets  String?   // AES-256-GCM, key outside the DB (APP_ENCRYPTION_KEY)
+  status            String    @default("active") // active | error | disabled | replaced
+  lastError         String?
+  lastErrorAt       DateTime?
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  replacedById      String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+
+  paymentRequests   PaymentRequest[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, kind, status])
+  // Partial unique (provider, environment, externalAccountId) WHERE status <> 'replaced' in SQL migration.
+}
+
+model PaymentRequest {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  tenantId             String    @db.Uuid
+  congregantId         String    @db.Uuid
+  integrationAccountId String    @db.Uuid
+  amountAgorot         Int
+  currency             String    @default("ILS")
+  pledgeIds            String[]  @db.Uuid // pledges the payer chose; empty = oldest first
+  status               String    @default("open") // open | paid | expired | cancelled
+  expiresAt            DateTime
+  idempotencyKey       String
+  createdVia           String    // portal | gabbai | whatsapp
+  createdAt            DateTime  @default(now())
+  paidAt               DateTime?
+
+  congregant  Congregant         @relation(fields: [tenantId, congregantId], references: [tenantId, id])
+  integration IntegrationAccount @relation(fields: [tenantId, integrationAccountId], references: [tenantId, id])
+  attempts    PaymentAttempt[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, congregantId, status])
+}
+
+// One provider hosted-page session for a request. Re-requesting returns the existing open attempt.
+model PaymentAttempt {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  tenantId         String   @db.Uuid
+  paymentRequestId String   @db.Uuid
+  providerPageRef  String   // provider page_request_uid (or fake id)
+  paymentUrl       String
+  status           String   @default("open") // open | completed | failed | expired
+  lastProviderStatus String?
+  createdAt        DateTime @default(now())
+
+  request PaymentRequest @relation(fields: [tenantId, paymentRequestId], references: [tenantId, id])
+
+  @@unique([tenantId, providerPageRef])
+  @@index([tenantId, paymentRequestId])
+}
+
+model Payment {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  tenantId             String    @db.Uuid
+  congregantId         String    @db.Uuid
+  method               String    // card | cash | transfer | check
+  status               String    // confirmed | pending_approval | rejected
+  amountAgorot         Int
+  currency             String    @default("ILS")
+  // Provider identity (card payments). Unique key prevents applying the same charge twice.
+  provider             String?
+  providerEnvironment  String?
+  providerAccountId    String?
+  providerTransactionId String?
+  integrationAccountId String?   @db.Uuid
+  paymentRequestId     String?   @db.Uuid
+  reportedBy           String    // provider | gabbai | congregant
+  reference            String?   // check number / transfer ref
+  note                 String?
+  clientOpId           String?
+  receivedAt           DateTime  @default(now())
+  approvedBy           String?
+  approvedAt           DateTime?
+  rejectedReason       String?
+  createdAt            DateTime  @default(now())
+
+  congregant  Congregant   @relation(fields: [tenantId, congregantId], references: [tenantId, id])
+  allocations Allocation[]
+  refunds     Refund[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, congregantId, id])
+  @@unique([provider, providerEnvironment, providerAccountId, providerTransactionId])
+  @@unique([tenantId, clientOpId])
+  @@index([tenantId, congregantId, status])
+}
+
+// Append-only. Positive rows apply money to a pledge, negative rows reverse (refund / pledge reduction).
+model Allocation {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @db.Uuid
+  paymentId    String   @db.Uuid
+  pledgeId     String   @db.Uuid
+  congregantId String   @db.Uuid // same card as both payment and pledge (enforced by composite FKs in SQL)
+  amountAgorot Int
+  reason       String   // payment | credit_apply | refund | pledge_reduction
+  sourceId     String?  // refund / adjustment id that caused a reversal
+  createdBy    String
+  createdAt    DateTime @default(now())
+
+  // Composite keys: tenant + card + row, so a payment can only be allocated to a pledge of the same card.
+  payment Payment @relation(fields: [tenantId, congregantId, paymentId], references: [tenantId, congregantId, id])
+  pledge  Pledge  @relation(fields: [tenantId, congregantId, pledgeId], references: [tenantId, congregantId, id])
+
+  @@index([tenantId, paymentId])
+  @@index([tenantId, pledgeId])
+}
+
+model Refund {
+  id                  String   @id @default(uuid(7)) @db.Uuid
+  tenantId            String   @db.Uuid
+  paymentId           String   @db.Uuid
+  amountAgorot        Int
+  provider            String?
+  providerEnvironment String?
+  providerAccountId   String?
+  providerRefundId    String?
+  createdBy           String
+  createdAt           DateTime @default(now())
+
+  payment Payment @relation(fields: [tenantId, paymentId], references: [tenantId, id])
+
+  @@unique([provider, providerEnvironment, providerAccountId, providerRefundId])
+  @@index([tenantId, paymentId])
+}
+
+// ───────────────────────────── Provider inbox / outbox ─────────────────────────────
+
+model ProviderEvent {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  tenantId             String    @db.Uuid
+  integrationAccountId String    @db.Uuid
+  provider             String
+  kind                 String    // payment_callback | refund_callback | whatsapp_inbound | whatsapp_status
+  dedupeKey            String    // hash of the raw body – duplicate deliveries collapse here
+  payload              Json
+  authenticated        Boolean
+  status               String    @default("received") // received | processed | exception | ignored
+  attempts             Int       @default(0)
+  resultNote           String?
+  receivedAt           DateTime  @default(now())
+  processedAt          DateTime?
+
+  @@unique([tenantId, provider, dedupeKey])
+  @@index([tenantId, status])
+}
+
+// Events that could not be routed to a tenant (unknown account, bad signature). No RLS tenant; system-only.
+model UnroutedEvent {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  provider   String
+  reason     String
+  headers    Json
+  bodyHash   String
+  receivedAt DateTime @default(now())
+}
+
+model Outbox {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @db.Uuid
+  topic       String    // payment_confirmation | receipt | task_notification
+  payload     Json
+  status      String    @default("pending") // pending | done | failed
+  attempts    Int       @default(0)
+  lastError   String?
+  availableAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  doneAt      DateTime?
+
+  @@index([status, availableAt])
+}
+
+// Every outbound message (reminder, confirmation, menu reply). Tracks provider receipt, never assumes delivery.
+model OutboundMessage {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  tenantId          String    @db.Uuid
+  congregantId      String    @db.Uuid
+  kind              String    // reminder | confirmation | menu_reply | otp
+  idempotencyKey    String
+  status            String    @default("scheduled") // scheduled | skipped | sending | accepted | delivered | read | failed | unknown
+  skipReason        String?
+  scheduledFor      DateTime
+  attemptedAt       DateTime?
+  providerMessageId String?
+  providerStatus    String?
+  body              Json?
+  createdAt         DateTime  @default(now())
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, congregantId, kind, createdAt])
+  @@index([tenantId, status, scheduledFor])
+}
+
+// Work items for the gabbai: inquiry, external payment report, provider exception, reconciliation diff.
+model Task {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  kind         String    // inquiry | external_payment | provider_exception | reconciliation | receipt_failed
+  status       String    @default("open") // open | resolved
+  congregantId String?   @db.Uuid
+  paymentId    String?   @db.Uuid
+  providerEventId String? @db.Uuid
+  summary      String
+  details      Json?
+  pausesReminders Boolean @default(false)
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  resolution   String?
+
+  @@index([tenantId, status])
+  @@index([tenantId, congregantId, status])
+}
+
+// ───────────────────────────── Congregant portal ─────────────────────────────
+
+model PersonalLink {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  congregantId String    @db.Uuid
+  tokenHash    String    @unique // sha256 of the random token; the token itself is never stored
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdBy    String
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, congregantId])
+}
+
+model OtpChallenge {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  linkId       String    @db.Uuid
+  phone        String
+  codeHash     String
+  expiresAt    DateTime
+  attempts     Int       @default(0)
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, linkId, createdAt])
+}
+
+model PortalSession {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @db.Uuid
+  linkId       String   @db.Uuid
+  phone        String
+  tokenHash    String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+// ───────────────────────────── Import / audit ─────────────────────────────
+
+model ImportBatch {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @db.Uuid
+  kind      String   // congregants | pledges
+  fileHash  String
+  rowCount  Int
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, kind, fileHash])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String?  @db.Uuid
+  actorType  String   // gabbai | congregant | system | platform_admin | provider
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+// ───────────────────────────── SaaS billing (separate money domain) ─────────────────────────────
+
+model SaaSSubscription {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  tenantId           String    @unique @db.Uuid
+  status             String    // trial | active | past_due | grace | suspended | cancelled
+  planCode           String    @default("standard")
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  graceEndsAt        DateTime?
+  cancelledAt        DateTime?
+  accessEndsAt       DateTime? // export access window after cancellation
+  messagesUsed       Int       @default(0) // counter for the current period
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id])
+  invoices SaaSInvoice[]
+}
+
+model SaaSInvoice {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @db.Uuid
+  subscriptionId String    @db.Uuid
+  periodStart    DateTime
+  periodEnd      DateTime
+  amountAgorot   Int
+  currency       String    @default("ILS")
+  status         String    @default("open") // open | paid | void
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  subscription SaaSSubscription @relation(fields: [subscriptionId], references: [id])
+  charges      SaaSCharge[]
+
+  @@unique([subscriptionId, periodStart])
+}
+
+model SaaSCharge {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  tenantId         String   @db.Uuid
+  invoiceId        String   @db.Uuid
+  provider         String   // fake | manual | <real provider>
+  providerChargeId String
+  amountAgorot     Int
+  status           String   // succeeded | failed
+  recordedBy       String?
+  note             String?
+  createdAt        DateTime @default(now())
+
+  invoice SaaSInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@unique([provider, providerChargeId])
+}
+
+model SupportCase {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tenantId  String?   @db.Uuid
+  kind      String    // integration_error | worker_failure | reconciliation | other
+  summary   String    // never contains congregant financial details
+  status    String    @default("open")
+  createdAt DateTime  @default(now())
+  resolvedAt DateTime?
+}
