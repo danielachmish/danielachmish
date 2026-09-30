@@ -66,3 +66,16 @@ describe("zero-configuration demo on Vercel", () => {
     expect(process.env.APP_DB_PASSWORD).toBeUndefined();
   });
 });
+
+describe("Neon integration variable prefix", () => {
+  it("STORAGE_URL (Vercel default prefix) is accepted as DATABASE_URL", async () => {
+    process.env = { ...saved, VERCEL: "1", STORAGE_URL: "postgresql://o:p@pooled/d", STORAGE_URL_UNPOOLED: "postgresql://o:p@direct/d" } as NodeJS.ProcessEnv;
+    for (const k of ["DATABASE_URL", "DATABASE_URL_UNPOOLED", "APP_ENV", "APP_DB_PASSWORD", "MIGRATION_DATABASE_URL"]) delete process.env[k];
+    const { vi } = await import("vitest");
+    vi.resetModules();
+    const env = await import("@/server/env");
+    expect(process.env.DATABASE_URL).toBe("postgresql://o:p@pooled/d");
+    expect(env.migrationDatabaseUrl()).toBe("postgresql://o:p@direct/d");
+    expect(new URL(env.runtimeDatabaseUrl()!).username).toBe("synagogue_app");
+  });
+});

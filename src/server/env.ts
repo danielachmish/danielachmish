@@ -1,5 +1,12 @@
 import { createHmac } from "node:crypto";
 
+// Vercel's Neon integration names variables by a chosen prefix (DATABASE_URL, or STORAGE_URL by default).
+// Normalise to DATABASE_URL / DATABASE_URL_UNPOOLED before anything reads them.
+for (const prefix of ["STORAGE", "POSTGRES", "NEON"]) {
+  process.env.DATABASE_URL ??= process.env[`${prefix}_URL`] ?? (prefix === "POSTGRES" ? process.env.POSTGRES_PRISMA_URL : undefined);
+  process.env.DATABASE_URL_UNPOOLED ??= process.env[`${prefix}_URL_UNPOOLED`] ?? process.env[`${prefix}_URL_NON_POOLING`];
+}
+
 // Deployment environment. NODE_ENV only says how Next was built; APP_ENV says what the deployment is for:
 //   development / test – local work · demo – public demo with fake providers only · production – real money.
 // A deployment that does not say APP_ENV=demo is treated as production whenever NODE_ENV=production.
