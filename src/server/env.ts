@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 // Deployment environment. NODE_ENV only says how Next was built; APP_ENV says what the deployment is for:
 //   development / test – local work · demo – public demo with fake providers only · production – real money.
 // A deployment that does not say APP_ENV=demo is treated as production whenever NODE_ENV=production.
@@ -41,6 +43,27 @@ export function runtimeDatabaseUrl(): string | undefined {
 export function migrationDatabaseUrl(): string | undefined {
   return process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL_UNPOOLED ?? process.env.POSTGRES_URL_NON_POOLING ?? (process.env.APP_DB_PASSWORD ? process.env.DATABASE_URL : undefined);
 }
+
+/**
+ * Zero-configuration demo on Vercel: a Vercel deployment without APP_ENV is a demo (fake providers only –
+ * it can never move real money, since live providers need PROVIDER_MODE=live which demo mode refuses).
+ * Missing secrets are derived from the connected database URL: it is secret, stable, and present at both
+ * build and runtime. Any variable set explicitly in the project always wins.
+ */
+function zeroConfigDemo() {
+  if (!process.env.VERCEL || process.env.APP_ENV) return;
+  const seed = process.env.DATABASE_URL;
+  process.env.APP_ENV = "demo";
+  process.env.PROVIDER_MODE ??= "fake";
+  process.env.OTP_CHANNEL ??= "fake";
+  if (!seed) return;
+  const derive = (purpose: string) => createHmac("sha256", seed).update(`synagogue-saas:${purpose}`).digest();
+  process.env.APP_DB_PASSWORD ??= derive("app-db-password").toString("hex");
+  process.env.BETTER_AUTH_SECRET ??= derive("better-auth-secret").toString("hex");
+  process.env.APP_ENCRYPTION_KEY ??= derive("encryption-key").toString("base64");
+  process.env.CRON_SECRET ??= derive("cron-secret").toString("hex");
+}
+zeroConfigDemo();
 
 // Fill derived values once, before config validation and Better Auth read them.
 const b = derivedBaseUrl();
