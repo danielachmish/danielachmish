@@ -5,12 +5,18 @@ import { migrationDatabaseUrl } from "../src/server/env";
 // Build on Vercel: create/refresh the restricted runtime role, run migrations, seed the demo, build Next.
 // Runs with the database owner connection that the Neon integration provides.
 async function main() {
+  // Diagnostics for the build log: which database-related variables exist (names only, never values).
+  const dbVars = Object.keys(process.env).filter((k) => /(DATABASE|POSTGRES|STORAGE|NEON|PG)/.test(k) && !/PASSWORD/.test(k)).sort();
+  console.log(`database variables present: ${dbVars.length ? dbVars.join(", ") : "(none)"}`);
+  console.log(`mode: APP_ENV=${process.env.APP_ENV ?? "-"} PROVIDER_MODE=${process.env.PROVIDER_MODE ?? "-"}`);
   const owner = migrationDatabaseUrl();
   const appPassword = process.env.APP_DB_PASSWORD;
-  if (!owner) throw new Error("No database connected. Connect a Postgres database (Storage → Neon) to the project.");
+  if (!owner)
+    throw new Error("No database connected. Connect a Postgres database (Storage → Neon → Connect) to the project, then redeploy.");
+  console.log(`database host: ${new URL(owner).hostname}`);
   if (!appPassword || appPassword.length < 24) throw new Error("Set APP_DB_PASSWORD (24+ random characters) in the project's environment variables.");
 
-  const c = new pg.Client({ connectionString: owner });
+  const c = new pg.Client({ connectionString: owner, connectionTimeoutMillis: 20_000 });
   await c.connect();
   const exists = (await c.query("SELECT 1 FROM pg_roles WHERE rolname = 'synagogue_app'")).rowCount;
   const pw = appPassword.replace(/'/g, "''");
