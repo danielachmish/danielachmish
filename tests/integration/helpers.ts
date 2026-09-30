@@ -43,3 +43,26 @@ export const asTenant = <T>(tenantId: string, fn: Parameters<typeof withContext<
   withContext(tenantCtx(tenantId, gabbai()), fn);
 
 export const d = (s: string) => new Date(`${s}T00:00:00Z`);
+
+import { encryptJson } from "@/server/crypto";
+
+export async function makeFakePaymentIntegration(tenantId: string, externalAccountId = `acct-${randomUUID().slice(0, 8)}`) {
+  return withContext(tenantCtx(tenantId, gabbai()), (tx) =>
+    tx.integrationAccount.create({
+      data: {
+        tenantId,
+        kind: "payment",
+        provider: "fake",
+        environment: "fake",
+        externalAccountId,
+        encryptedSecrets: encryptJson({ webhookSecret: `whsec-${externalAccountId}` }),
+      },
+    }),
+  );
+}
+
+export async function makeSubscription(tenantId: string, status = "active") {
+  return withContext({ kind: "platform_admin", userId: "admin" }, (tx) =>
+    tx.saaSSubscription.upsert({ where: { tenantId }, create: { tenantId, status }, update: { status } }),
+  );
+}

@@ -588,3 +588,17 @@ model SupportCase {
   createdAt DateTime  @default(now())
   resolvedAt DateTime?
 }
+
+// ───────────────────────────── Development-only fake providers ─────────────────────────────
+// Backing store for fake payment / messaging / OTP / receipt providers so the web process and the
+// worker share state. Fake providers refuse to run when NODE_ENV=production (see providers/registry.ts).
+model DevFakeRecord {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  kind      String   // payment_txn | message | otp | receipt | saas_charge
+  key       String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@unique([kind, key])
+  @@index([kind, createdAt])
+}
