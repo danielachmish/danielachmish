@@ -25,6 +25,7 @@ import {
 } from "@/server/gabbai/import-export";
 import { issuePersonalLink, revokeLinks } from "@/server/portal/links";
 import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
+import { finishEmbeddedSignup, storeWhatsappConnection, type SignupResult } from "@/server/integrations/whatsapp-signup";
 import { audit } from "@/server/audit";
 import { prisma } from "@/server/db/client";
 import { after } from "next/server";
@@ -423,4 +424,15 @@ export async function reconcileReportAction(csv: string, map: ReconColumnMap) {
     revalidatePath("/tasks");
     return r;
   });
+}
+
+/** WhatsApp Business one-click connection (Embedded Signup) for this synagogue. */
+export async function completeWhatsappSignupAction(input: SignupResult) {
+  return run(async () => {
+    const g = await requireGabbai();
+    const r = await finishEmbeddedSignup(input);
+    await withContext(g.ctx, (tx) => storeWhatsappConnection(tx, g.tenantId, g.actor, { ...input, token: r.token, pin: r.pin }));
+    revalidatePath("/settings");
+    return { templates: r.templates };
+  }, "וואטסאפ חובר. תבניות ההודעה נשלחו לאישור של Meta (בדרך כלל דקות עד שעות).");
 }

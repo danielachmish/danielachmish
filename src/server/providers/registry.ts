@@ -4,15 +4,17 @@ import { payplusProvider } from "./payplus";
 import { fakeIdentityProvider, fakeMessagingProvider, fakeReceiptProvider, fakeSaaSBillingProvider } from "./fake-others";
 import { whatsappCloudProvider } from "./whatsapp-cloud";
 import { decryptJson } from "../crypto";
-import { isProductionEnv } from "../env";
+import { isDemo, isProductionEnv, modeFor } from "../env";
+import { normalizePhone } from "../util/phone";
 import { fakeAllowed } from "./guard";
 import { whatsappIdentityProvider } from "./whatsapp-otp";
+import { twilioSmsProvider } from "./twilio-sms";
 
-// Integration accounts must match the deployment's PROVIDER_MODE; fake is impossible in production.
-function assertEnvironment(env: string) {
-  const mode = process.env.PROVIDER_MODE ?? "fake";
+// Integration accounts must match the deployment's mode for their kind; fake is impossible in production.
+function assertEnvironment(env: string, kind: string = "payment") {
+  const mode = modeFor(kind);
   if (isProductionEnv() && env === "fake") throw new Error("fake integrations are disabled in production");
-  if (env !== mode) throw new Error(`integration environment "${env}" does not match PROVIDER_MODE "${mode}"`);
+  if (env !== mode) throw new Error(`${kind} integration environment "${env}" does not match the configured mode "${mode}"`);
 }
 
 export function paymentProvider(name: string): PaymentProvider {
@@ -26,7 +28,7 @@ export function paymentProvider(name: string): PaymentProvider {
 
 export function messagingProvider(name: string): MessagingProvider {
   if (name === "fake") {
-    assertEnvironment("fake");
+    assertEnvironment("fake", "messaging");
     return fakeMessagingProvider;
   }
   if (name === "whatsapp_cloud") return whatsappCloudProvider;
@@ -40,6 +42,15 @@ export function identityProvider(): IdentityDeliveryProvider {
     return fakeIdentityProvider;
   }
   if (ch === "whatsapp") return whatsappIdentityProvider;
+  if (ch === "sms") {
+    // Demo site: real SMS only to numbers explicitly allowed (e.g. the owner's phone); the demo's dummy
+    // numbers may belong to real people, so their codes stay in the development inbox.
+    if (isDemo()) {
+      const allow = new Set((process.env.DEMO_SMS_ALLOW ?? "").split(",").map((x) => normalizePhone(x)).filter(Boolean));
+      return { name: "sms-demo", sendCode: (i) => (allow.has(i.phone) ? twilioSmsProvider.sendCode(i) : fakeIdentityProvider.sendCode(i)) };
+    }
+    return twilioSmsProvider;
+  }
   throw new Error(`OTP channel "${ch}" is not implemented yet (open business decision)`);
 }
 
@@ -53,6 +64,7 @@ export function saasBillingProvider(): SaaSBillingProvider | null {
 }
 
 export function toIntegrationRef(row: {
+  kind?: string;
   id: string;
   tenantId: string;
   provider: string;
@@ -60,7 +72,7 @@ export function toIntegrationRef(row: {
   externalAccountId: string;
   encryptedSecrets: string | null;
 }): IntegrationRef {
-  assertEnvironment(row.environment);
+  assertEnvironment(row.environment, row.kind ?? "payment");
   return {
     id: row.id,
     tenantId: row.tenantId,

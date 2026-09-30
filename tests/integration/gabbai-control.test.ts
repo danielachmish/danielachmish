@@ -71,7 +71,10 @@ describe("automatic reminder policy decided by the gabbai", () => {
     const [m] = await dueMessages(tenantId, new Date("2026-11-02T09:00:00Z"));
     await dispatchMessage(tenantId, m!.id, new Date("2026-11-02T09:00:00Z"));
     const sent = await asTenant(tenantId, (t) => t.outboundMessage.findFirstOrThrow());
-    expect((sent.body as { text: string }).text).toMatch(/^היי ישראל, נשאר 300 ₪\. https?:\/\/.+\/p#.+\nלהפסקת תזכורות/);
+    // History keeps the text without the personal link; the provider received the real link.
+    expect((sent.body as { text: string }).text).toBe('היי ישראל, נשאר 300 ₪. [קישור אישי]\nלהפסקת תזכורות השיבו "הסר".');
+    const delivered = await prisma.devFakeRecord.findFirstOrThrow({ where: { kind: "message" } });
+    expect((delivered.data as { text: string }).text).toMatch(/^היי ישראל, נשאר 300 ₪\. https?:\/\/.+\/p#.+\nלהפסקת תזכורות/);
   });
 
   it("gabbai can cancel a scheduled reminder", async () => {

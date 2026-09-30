@@ -11,7 +11,9 @@ import { hmacSha256, safeEqual } from "../crypto";
 export const whatsappCloudProvider: MessagingProvider = {
   name: "whatsapp_cloud",
   async send(account, msg) {
-    if (process.env.WHATSAPP_LIVE_ENABLED !== "true") return { status: "rejected", error: "live WhatsApp disabled" };
+    // Live sending to real congregants needs an explicit switch (templates approved, policy decided).
+    // Sandbox (Meta's test number and verified test recipients) works without it.
+    if (account.environment === "live" && process.env.WHATSAPP_LIVE_ENABLED !== "true") return { status: "rejected", error: "live WhatsApp disabled" };
     const base = process.env.WHATSAPP_API_BASE;
     const body = msg.template
       ? {

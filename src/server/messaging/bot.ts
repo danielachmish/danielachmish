@@ -2,6 +2,7 @@ import { prisma } from "../db/client";
 import { systemCtx, withContext } from "../db/context";
 import { isUniqueViolation } from "../errors";
 import { sha256 } from "../crypto";
+import { modeFor } from "../env";
 import { messagingProvider } from "../providers/registry";
 import { enqueue, QUEUES } from "../queue";
 import { normalizePhone } from "../util/phone";
@@ -31,7 +32,7 @@ export async function receiveMessagingWebhook(providerName: string, headers: Hea
     return { outcome: "rejected" as const };
   }
   const route = provider.routeWebhook(rawBody);
-  const env = process.env.PROVIDER_MODE ?? "fake";
+  const env = modeFor("messaging");
   const acct = route
     ? (await prisma.$queryRaw<{ id: string; tenant_id: string }[]>`
         SELECT * FROM resolve_integration_account('messaging', ${providerName}, ${env}, ${route.externalAccountId})`)[0]

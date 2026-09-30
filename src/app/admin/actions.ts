@@ -13,6 +13,7 @@ import { recordManualSubscriptionPayment, setSubscriptionStatus } from "@/server
 import type { SubStatus } from "@/server/billing/policy";
 import { withContext } from "@/server/db/context";
 import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
+import { finishEmbeddedSignup, storeWhatsappConnection, type SignupResult } from "@/server/integrations/whatsapp-signup";
 import { saveReminderDefaults, saveSettingsDefaults, type ReminderDefaults } from "@/server/admin/defaults";
 import type { TenantSettings } from "@/server/settings";
 
@@ -111,4 +112,17 @@ export async function saveSettingsDefaultsAction(input: Partial<TenantSettings>)
     await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveSettingsDefaults(tx, a.userId, input));
     revalidatePath("/admin/defaults");
   }, "ברירות המחדל נשמרו. הן יחולו על בתי כנסת שיצטרפו מעכשיו.");
+}
+
+export async function adminCompleteWhatsappSignupAction(tenantId: string, input: SignupResult) {
+  return run(async () => {
+    const a = await requireAdmin();
+    const id = z.uuid().parse(tenantId);
+    const r = await finishEmbeddedSignup(input);
+    await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, (tx) =>
+      storeWhatsappConnection(tx, id, a.actor, { ...input, token: r.token, pin: r.pin }),
+    );
+    revalidatePath(`/admin/tenants/${id}`);
+    return { templates: r.templates };
+  }, "וואטסאפ חובר עבור בית הכנסת. תבניות ההודעה נשלחו לאישור של Meta.");
 }

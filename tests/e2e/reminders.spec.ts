@@ -33,7 +33,7 @@ test("send a reminder now from a card; soft block asks for confirmation", async 
   await expect(page.getByText("התזכורת נשלחה.")).toBeVisible();
   // Second time within 24h → asks for explicit confirmation
   await page.getByRole("button", { name: "שליחת תזכורת עכשיו" }).click();
-  await expect(page.getByText(/נשלחה תזכורת ב-24 השעות האחרונות/)).toBeVisible();
+  await expect(page.getByText(/נשלחה תזכורת ב-24 השעות האחרונות\. לשלוח בכל זאת/)).toBeVisible();
   await page.getByRole("button", { name: "לשלוח בכל זאת" }).click();
   await expect(page.getByText("התזכורת נשלחה.")).toBeVisible();
   const [r] = await ownerQuery<{ n: number }>(`SELECT count(*)::int n FROM "OutboundMessage" WHERE trigger='manual' AND status='accepted'`);
@@ -63,4 +63,17 @@ test("behaviour settings: disable partial payment → hidden on the personal pag
   await expect(page.getByText("ההגדרות נשמרו.")).toBeVisible();
   const [t] = await ownerQuery<{ s: { portalPartialPayment: boolean } }>(`SELECT settings s FROM "Tenant" WHERE name LIKE '%אוהל יעקב%'`);
   expect(t!.s.portalPartialPayment).toBe(false);
+});
+
+test("send from my WhatsApp: opens wa.me with the ready text in a new tab", async ({ page, context }) => {
+  await openCard(page, "אברהם דוגמה");
+  const waRequest = context.waitForEvent("request", { predicate: (r) => /^https:\/\/(wa\.me|api\.whatsapp\.com)\//.test(r.url()), timeout: 20_000 });
+  await page.getByRole("button", { name: "שליחה מהוואטסאפ שלי" }).click();
+  const req = await waRequest;
+  expect(req.url()).toMatch(/^https:\/\/wa\.me\/972502222222\?text=/);
+  // Uses the synagogue's own reminder wording (set by an earlier test) and a personal link.
+  expect(decodeURIComponent(req.url())).toMatch(/אברהם.*₪.*\/p#[A-Za-z0-9_-]{20,}/s);
+  await page.goto("/reminders");
+  await expect(page.getByText(/שליחה מהוואטסאפ שלי \(\d+ בעלי חוב\)/)).toBeVisible();
+  await expect(page.locator("li", { hasText: "אברהם דוגמה" }).getByText("נשלחה ב-24 שעות")).toBeVisible();
 });

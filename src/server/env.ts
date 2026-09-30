@@ -100,3 +100,12 @@ if (b) {
   process.env.APP_BASE_URL ??= b;
   process.env.BETTER_AUTH_URL ??= b;
 }
+
+/**
+ * Provider environment per kind. Payments follow PROVIDER_MODE; messaging follows MESSAGING_MODE when set
+ * (e.g. testing Meta's WhatsApp test number in "sandbox" while payments stay "fake" on the demo site).
+ */
+export function modeFor(kind: "payment" | "messaging" | string): "fake" | "sandbox" | "live" {
+  const v = (kind === "messaging" ? process.env.MESSAGING_MODE || process.env.PROVIDER_MODE : process.env.PROVIDER_MODE) ?? "fake";
+  return v === "sandbox" || v === "live" ? v : "fake";
+}

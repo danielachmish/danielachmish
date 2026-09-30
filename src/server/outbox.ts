@@ -60,7 +60,10 @@ async function handle(tx: Parameters<Parameters<typeof withContext>[1]>[0], tena
           kind: "confirmation",
           idempotencyKey: `confirm:${p.id}`,
           scheduledFor: new Date(),
-          body: { text: `התקבל תשלום של ${formatILS(p.amountAgorot)}. תודה!` },
+          body: {
+            text: `התקבל תשלום של ${formatILS(p.amountAgorot)}. תודה!`,
+            template: { name: "payment_confirmation", params: [formatILS(p.amountAgorot), (await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } })).name] },
+          },
         },
       ],
       skipDuplicates: true,

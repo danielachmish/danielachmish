@@ -4,9 +4,11 @@ import { withContext } from "@/server/db/context";
 import { planConfig } from "@/server/config";
 import { nextSendWindow, policyOf } from "@/server/reminders/calendar";
 import { SKIP_TEXT } from "@/server/reminders/service";
-import { Badge, Card, Empty, LinkButton, fmtDateTime } from "@/components/ui";
+import { Badge, Card, Empty, LinkButton, Money, fmtDateTime } from "@/components/ui";
 import { MSG_STATUS } from "@/components/labels";
 import { BulkReminder, CancelReminder } from "@/components/gabbai/reminder-controls";
+import { ShareToWhatsAppButton } from "@/components/gabbai/share-button";
+import { shareCandidates } from "@/server/reminders/share";
 
 const KIND: Record<string, string> = { reminder: "תזכורת", confirmation: "אישור תשלום", menu_reply: "מענה בוואטסאפ", otp: "קוד" };
 const TRIGGER: Record<string, string> = { auto: "אוטומטית", manual: "ידנית", manual_bulk: "ידנית (לכולם)" };
@@ -14,7 +16,8 @@ const DAY = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 
 export default async function Reminders() {
   const g = await requireGabbai();
-  const { msgs, scheduled, names, sub, tenant } = await withContext(g.ctx, async (tx) => {
+  const { msgs, scheduled, names, sub, tenant, shareList } = await withContext(g.ctx, async (tx) => {
+    const shareList = await shareCandidates(tx);
     const msgs = await tx.outboundMessage.findMany({ where: { status: { not: "scheduled" } }, orderBy: { createdAt: "desc" }, take: 100 });
     const scheduled = await tx.outboundMessage.findMany({ where: { status: "scheduled" }, orderBy: { scheduledFor: "asc" }, take: 200 });
     const ids = [...new Set([...msgs, ...scheduled].map((m) => m.congregantId))];
@@ -25,6 +28,7 @@ export default async function Reminders() {
       names: new Map(people.map((p) => [p.id, `${p.firstName} ${p.lastName}`])),
       sub: await tx.saaSSubscription.findUnique({ where: { tenantId: g.tenantId } }),
       tenant: await tx.tenant.findUniqueOrThrow({ where: { id: g.tenantId } }),
+      shareList,
     };
   });
   const policy = policyOf(tenant);
@@ -50,6 +54,28 @@ export default async function Reminders() {
           אפשר לשלוח תזכורת בכל רגע – כאן לכל בעלי החוב, או מתוך כרטיס מתפלל למתפלל אחד. לא נשלחת הודעה למי שלא נתן הסכמה, ביקש להפסיק או שאין לו חוב.
         </p>
         <BulkReminder />
+      </Card>
+      <Card title={`שליחה מהוואטסאפ שלי (${shareList.length} בעלי חוב)`}>
+        <p className="mb-3 text-sm text-slate-600">
+          בלי חשבון וואטסאפ עסקי: לוחצים ליד כל שם, נפתח הוואטסאפ שלכם עם הודעה מוכנה וקישור אישי, ולוחצים ״שלח״. מי שביקש להפסיק הודעות לא מופיע כאן.
+        </p>
+        {shareList.length === 0 ? (
+          <Empty>אין בעלי חוב עם טלפון.</Empty>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {shareList.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="flex flex-wrap items-center gap-2">
+                  <Link href={`/congregants/${p.id}`} className="text-brand-700 hover:underline">{p.name}</Link>
+                  <Money agorot={p.debt} />
+                  {p.recent && <Badge tone="green">נשלחה ב-24 שעות</Badge>}
+                  {p.pending && <Badge tone="amber">תשלום ממתין לאישור</Badge>}
+                </span>
+                <ShareToWhatsAppButton congregantId={p.id} label="שליחה" compact />
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
       <Card title={`מתוזמנות (${scheduled.length})`}>
         {scheduled.length === 0 ? (

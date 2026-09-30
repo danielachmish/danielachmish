@@ -5,6 +5,8 @@ import { GeneralSettings, SupportGrantForm } from "@/components/gabbai/settings-
 import { IntegrationPanel } from "@/components/integration-panel";
 import { integrationStatus } from "@/server/integrations/connect";
 import { providersFor } from "@/server/integrations/catalog";
+import { modeFor } from "@/server/env";
+import { embeddedSignupConfig } from "@/server/integrations/whatsapp-signup";
 import { BehaviourForm, ReminderPolicyForm } from "@/components/gabbai/policy-forms";
 import { parseSettings } from "@/server/settings";
 
@@ -18,7 +20,7 @@ export default async function Settings() {
     sub: await tx.saaSSubscription.findUnique({ where: { tenantId: g.tenantId } }),
     grants: await tx.supportGrant.findMany({ where: { revokedAt: null, expiresAt: { gt: new Date() } } }),
   }));
-  const mode = process.env.PROVIDER_MODE ?? "fake";
+  const modes = { payment: modeFor("payment"), messaging: modeFor("messaging") };
   return (
     <>
       <h1 className="text-2xl font-bold">הגדרות</h1>
@@ -55,7 +57,7 @@ export default async function Settings() {
       <div id="integrations" className="scroll-mt-28 space-y-4">
       {(["payment", "messaging"] as const).map((k) => (
         <Card key={k} title={k === "payment" ? "חיבור סליקה (החשבון של בית הכנסת)" : "חיבור וואטסאפ רשמי"}>
-          <IntegrationPanel kind={k} providers={providersFor(k, mode)} current={d.integrations[k]} target={{ type: "gabbai" }} />
+          <IntegrationPanel kind={k} providers={providersFor(k, modes[k])} current={d.integrations[k]} target={{ type: "gabbai" }} embeddedSignup={k === "messaging" ? embeddedSignupConfig() : null} />
         </Card>
       ))}
       </div>

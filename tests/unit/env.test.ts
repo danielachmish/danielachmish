@@ -115,3 +115,58 @@ describe("email provider", () => {
     expect(JSON.parse(calls[0]!.body)).toMatchObject({ to: ["g@example.org"], subject: "איפוס" });
   });
 });
+
+describe("Twilio SMS verification codes", () => {
+  it("posts to the Messages API with basic auth and a messaging service", async () => {
+    process.env = { ...saved, TWILIO_ACCOUNT_SID: "AC123", TWILIO_AUTH_TOKEN: "tok", TWILIO_MESSAGING_SERVICE_SID: "MG9" } as NodeJS.ProcessEnv;
+    const { vi } = await import("vitest");
+    const calls: { url: string; body: URLSearchParams; auth: string }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      calls.push({ url, body: new URLSearchParams(String(init.body)), auth: (init.headers as Record<string, string>).authorization ?? "" });
+      return new Response('{"sid":"SM1"}', { status: 201 });
+    });
+    const { twilioSmsProvider } = await import("@/server/providers/twilio-sms");
+    await twilioSmsProvider.sendCode({ tenantId: "t", phone: "+972501234567", code: "123456" });
+    vi.unstubAllGlobals();
+    expect(calls[0]!.url).toBe("https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json");
+    expect(calls[0]!.auth).toBe(`Basic ${Buffer.from("AC123:tok").toString("base64")}`);
+    expect(calls[0]!.body.get("To")).toBe("+972501234567");
+    expect(calls[0]!.body.get("MessagingServiceSid")).toBe("MG9");
+    expect(calls[0]!.body.get("Body")).toContain("123456");
+  });
+
+  it("fails clearly without configuration and never leaks the code in errors", async () => {
+    process.env = { ...saved, TWILIO_ACCOUNT_SID: "", TWILIO_AUTH_TOKEN: "" } as NodeJS.ProcessEnv;
+    const { twilioSmsProvider } = await import("@/server/providers/twilio-sms");
+    await expect(twilioSmsProvider.sendCode({ tenantId: "t", phone: "+972501234567", code: "654321" })).rejects.toThrow(/not configured/);
+    process.env = { ...saved, TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "x", TWILIO_FROM: "Nedarim" } as NodeJS.ProcessEnv;
+    const { vi } = await import("vitest");
+    vi.stubGlobal("fetch", async () => new Response('{"code":21211,"message":"Invalid To"}', { status: 400 }));
+    const err = await twilioSmsProvider.sendCode({ tenantId: "t", phone: "+972501234567", code: "654321" }).catch((e: Error) => e);
+    vi.unstubAllGlobals();
+    expect(String(err)).toContain("21211");
+    expect(String(err)).not.toContain("654321");
+    expect(String(err)).not.toContain("501234567");
+  });
+});
+
+describe("SMS on the demo site", () => {
+  it("only allow-listed numbers get a real SMS; others go to the demo inbox", async () => {
+    process.env = { ...saved, APP_ENV: "demo", OTP_CHANNEL: "sms", PROVIDER_MODE: "fake", DEMO_SMS_ALLOW: "054-1111111", TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_FROM: "X" } as NodeJS.ProcessEnv;
+    const { vi } = await import("vitest");
+    vi.resetModules();
+    const sent: string[] = [];
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) => {
+      sent.push(new URLSearchParams(String(init.body)).get("To")!);
+      return new Response("{}", { status: 201 });
+    });
+    const fakeStore = await import("@/server/providers/fake-store");
+    const spy = vi.spyOn(fakeStore, "fakePut").mockResolvedValue({} as never);
+    const { identityProvider } = await import("@/server/providers/registry");
+    await identityProvider().sendCode({ tenantId: "t", phone: "+972541111111", code: "111111" });
+    await identityProvider().sendCode({ tenantId: "t", phone: "+972502222222", code: "222222" });
+    vi.unstubAllGlobals();
+    expect(sent).toEqual(["+972541111111"]);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});

@@ -14,6 +14,7 @@ const schema = z
       .refine((v) => Buffer.from(v, "base64").length === 32, "APP_ENCRYPTION_KEY must be 32 bytes, base64"),
     PROVIDER_MODE: z.enum(["fake", "sandbox", "live"]).default("fake"),
     OTP_CHANNEL: z.enum(["fake", "whatsapp", "sms"]).default("fake"),
+    MESSAGING_MODE: z.enum(["fake", "sandbox", "live"]).optional(),
     SAAS_PLAN_PRICE_AGOROT: z.coerce.number().int().min(0).default(0),
     SAAS_PLAN_MONTHLY_MESSAGE_QUOTA: z.coerce.number().int().min(0).default(500),
     SAAS_TRIAL_DAYS: z.coerce.number().int().min(0).default(30),
@@ -29,11 +30,14 @@ const schema = z
     if (mode === "demo") {
       // Public demo: fake providers only, never live money or messages.
       if (env.PROVIDER_MODE === "live") ctx.addIssue({ code: "custom", path: ["PROVIDER_MODE"], message: "demo cannot use live providers" });
+      if (env.MESSAGING_MODE === "live") ctx.addIssue({ code: "custom", path: ["MESSAGING_MODE"], message: "demo cannot use live messaging" });
       return;
     }
     if (mode !== "production") return;
     if (env.PROVIDER_MODE !== "live")
       ctx.addIssue({ code: "custom", path: ["PROVIDER_MODE"], message: "production requires PROVIDER_MODE=live" });
+    if (env.MESSAGING_MODE && env.MESSAGING_MODE !== "live")
+      ctx.addIssue({ code: "custom", path: ["MESSAGING_MODE"], message: "production requires live messaging" });
     if (env.OTP_CHANNEL === "fake")
       ctx.addIssue({ code: "custom", path: ["OTP_CHANNEL"], message: "fake OTP channel is forbidden in production" });
     if (/localhost|127\.0\.0\.1/.test(env.APP_BASE_URL))

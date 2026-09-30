@@ -16,6 +16,9 @@ import {
 } from "@/components/gabbai/card-actions";
 import { TASK_LABEL } from "@/components/labels";
 import { ApplyCreditButton, SendReminderNow } from "@/components/gabbai/reminder-controls";
+import { ShareToWhatsAppButton } from "@/components/gabbai/share-button";
+import { shareWarnings } from "@/server/reminders/share";
+import { SKIP_TEXT } from "@/server/reminders/service";
 
 const REASON: Record<string, string> = { payment: "תשלום", credit_apply: "שימוש בזכות", refund: "החזר", pledge_reduction: "הפחתת נדר" };
 
@@ -31,10 +34,11 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
     const family = await tx.contactPermission.findMany({ where: { congregantId: id, revokedAt: null, relation: "family" } });
     const tasks = await tx.task.findMany({ where: { congregantId: id, status: "open" } });
     const messages = await tx.outboundMessage.findMany({ where: { congregantId: id }, orderBy: { createdAt: "desc" }, take: 5 });
-    return { c, card, consent, family, tasks, messages };
+    const share = await shareWarnings(tx, g.tenantId, id);
+    return { c, card, consent, family, tasks, messages, share };
   });
   if (!data) notFound();
-  const { c, card, consent, family, tasks } = data;
+  const { c, card, consent, family, tasks, share } = data;
   const s = card.summary;
   const pledgeName = new Map(card.pledges.map((p) => [p.id, `${fmtDate(p.pledgeDate)} ${p.description ?? p.category ?? ""}`.trim()]));
 
@@ -161,6 +165,13 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
           <hr className="my-3 border-slate-100" />
           {s.debtAgorot > 0 && (
             <>
+              {share.hard.length === 0 && c.phone && (
+                <div className="mb-3 space-y-1">
+                  <ShareToWhatsAppButton congregantId={c.id} />
+                  <p className="text-xs text-slate-500">נפתח הוואטסאפ שלך עם הודעה מוכנה וקישור אישי – בלי חשבון עסקי.</p>
+                  {share.soft.length > 0 && <p className="text-xs text-amber-800">שימו לב: {share.soft.map((r) => SKIP_TEXT[r]).join(", ")}.</p>}
+                </div>
+              )}
               <SendReminderNow congregantId={c.id} />
               <hr className="my-3 border-slate-100" />
             </>

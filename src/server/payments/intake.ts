@@ -2,6 +2,7 @@ import { prisma } from "../db/client";
 import { systemCtx, withContext } from "../db/context";
 import { isUniqueViolation } from "../errors";
 import { sha256 } from "../crypto";
+import { modeFor } from "../env";
 import { paymentProvider, toIntegrationRef } from "../providers/registry";
 import { enqueue, QUEUES } from "../queue";
 
@@ -16,7 +17,7 @@ export async function receivePaymentCallback(providerName: string, headers: Head
   const provider = paymentProvider(providerName);
   const routing = provider.routeCallback(rawBody);
   const bodyHash = sha256(rawBody);
-  const env = process.env.PROVIDER_MODE ?? "fake";
+  const env = modeFor("payment");
 
   const acct = routing
     ? (

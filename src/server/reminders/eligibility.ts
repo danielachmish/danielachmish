@@ -54,7 +54,7 @@ export async function reminderBlockers(tx: Tx, tenantId: string, congregantId: s
     if (openReq) reasons.push("open_payment_request");
   }
   const recent = await tx.outboundMessage.count({
-    where: { congregantId, kind: "reminder", status: { in: ["accepted", "delivered", "read", "sending", "unknown"] }, attemptedAt: { gt: new Date(Date.now() - RECENT_MANUAL_WINDOW_H * 3600_000) } },
+    where: { congregantId, kind: "reminder", status: { in: ["accepted", "delivered", "read", "sending", "unknown", "handed_off"] }, attemptedAt: { gt: new Date(Date.now() - RECENT_MANUAL_WINDOW_H * 3600_000) } },
   });
   if (recent) reasons.push("recent_reminder");
   const messaging = await tx.integrationAccount.findFirst({ where: { kind: "messaging", status: "active" } });

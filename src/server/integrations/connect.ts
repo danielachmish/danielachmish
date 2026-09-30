@@ -4,6 +4,7 @@ import { DomainError } from "../errors";
 import { encryptJson } from "../crypto";
 import { audit } from "../audit";
 import { providerDef } from "./catalog";
+import { modeFor } from "../env";
 
 export type ConnectInput = {
   kind: "payment" | "messaging";
@@ -12,6 +13,8 @@ export type ConnectInput = {
   displayName?: string;
   secrets: Record<string, string>;
   confirmReplace: boolean;
+  /** Extra encrypted values set by automated flows (e.g. WhatsApp Embedded Signup: wabaId, pin). */
+  extraSecrets?: Record<string, string>;
 };
 
 /**
@@ -21,7 +24,7 @@ export type ConnectInput = {
  * transactions still resolve against it.
  */
 export async function connectIntegration(tx: Tx, tenantId: string, actor: Actor, input: ConnectInput) {
-  const mode = process.env.PROVIDER_MODE ?? "fake";
+  const mode = modeFor(input.kind);
   const def = providerDef(input.kind, input.provider);
   if (!def) throw new DomainError("provider_unknown", "ספק לא מוכר.");
   if (def.status === "planned")
@@ -47,7 +50,7 @@ export async function connectIntegration(tx: Tx, tenantId: string, actor: Actor,
       environment: mode,
       externalAccountId: ext,
       displayName: input.displayName?.trim() || null,
-      encryptedSecrets: Object.keys(secrets).length ? encryptJson(secrets) : null,
+      encryptedSecrets: Object.keys({ ...secrets, ...input.extraSecrets }).length ? encryptJson({ ...secrets, ...input.extraSecrets }) : null,
       verifiedAt: new Date(),
       verifiedBy: actor.id,
     },

@@ -5,6 +5,7 @@ import { connectIntegrationAction, disconnectIntegrationAction } from "@/app/(ga
 import { adminConnectIntegrationAction, adminDisconnectIntegrationAction } from "@/app/admin/actions";
 import type { ProviderDef } from "@/server/integrations/catalog";
 import type { ActionResult } from "@/server/actions/result";
+import { WhatsAppSignupButton } from "./whatsapp-signup";
 import { Alert, Badge, Button, Field, Input, Select } from "./ui";
 
 type Current = { provider: string; environment: string; externalAccountId: string; displayName: string | null; status: string; lastError: string | null } | null;
@@ -15,11 +16,13 @@ export function IntegrationPanel({
   providers,
   current,
   target,
+  embeddedSignup,
 }: {
   kind: "payment" | "messaging";
   providers: ProviderDef[];
   current: Current;
   target: { type: "gabbai" } | { type: "admin"; tenantId: string };
+  embeddedSignup?: { appId: string; configId: string; version: string } | null;
 }) {
   const router = useRouter();
   const selectable = providers.filter((p) => p.status !== "planned");
@@ -68,6 +71,12 @@ export function IntegrationPanel({
         </div>
       )}
 
+      {editing && kind === "messaging" && embeddedSignup && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+          <WhatsAppSignupButton config={embeddedSignup} target={target} />
+          <p className="mt-2 text-xs text-slate-500">או חיבור ידני (לבדיקות עם מספר הבדיקה של Meta):</p>
+        </div>
+      )}
       {editing && (
         <form
           className="grid gap-3 sm:grid-cols-2"

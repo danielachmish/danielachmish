@@ -5,6 +5,7 @@ import { effectiveBlockers, HARD_BLOCKS, reminderBlockers, type SkipReason } fro
 import { messagingProvider, toIntegrationRef } from "../providers/registry";
 import { issuePersonalLink } from "../portal/links";
 import { renderReminder } from "./template";
+import { formatILS } from "../money";
 import { DomainError, notFound } from "../errors";
 import { audit } from "../audit";
 import { enqueue, QUEUES } from "../queue";
@@ -28,7 +29,7 @@ export async function scanReminders(tenantId: string, now = new Date()) {
       if (open.length === 0) continue;
       const oldest = open.map((p) => p.dueDate ?? p.pledgeDate).sort((a, b) => a.getTime() - b.getTime())[0]!;
       const last = await tx.outboundMessage.findFirst({
-        where: { congregantId: id, kind: "reminder", status: { in: ["accepted", "delivered", "read", "unknown", "sending"] } },
+        where: { congregantId: id, kind: "reminder", status: { in: ["accepted", "delivered", "read", "unknown", "sending", "handed_off"] } },
         orderBy: { attemptedAt: "desc" },
       });
       const due = reminderDueAt({
@@ -80,23 +81,27 @@ export async function dispatchMessage(tenantId: string, messageId: string, now =
       await tx.outboundMessage.update({ where: { id: messageId }, data: { status: "skipped", skipReason: [...new Set(blockers)].join(",") } });
       return null;
     }
-    let body = (msg.body as { text?: string } | null) ?? null;
+    let body = (msg.body as { text?: string; template?: { name: string; params: string[] } } | null) ?? null;
+    let stored = body;
+    let template: { name: string; language: string; params: string[] } | undefined =
+      body?.template ? { name: body.template.name, language: "he", params: body.template.params } : undefined;
     if (msg.kind === "reminder") {
       const summary = (await loadCard(tx, c.id)).summary;
       const link = await issuePersonalLink(tx, tenantId, c.id, "system:reminder");
-      body = {
-        text: renderReminder(tenant.reminderTemplate, {
-          firstName: c.firstName,
-          lastName: c.lastName,
-          debtAgorot: summary.debtAgorot,
-          synagogueName: tenant.name,
-          link: link.url,
-        }),
+      const vars = { firstName: c.firstName, lastName: c.lastName, debtAgorot: summary.debtAgorot, synagogueName: tenant.name };
+      body = { text: renderReminder(tenant.reminderTemplate, { ...vars, link: link.url }) };
+      // Official WhatsApp needs the pre-approved template (the gabbai's free text is used on other channels).
+      template = {
+        name: process.env.WHATSAPP_REMINDER_TEMPLATE ?? "pledge_reminder",
+        language: "he",
+        params: [c.firstName, tenant.name, formatILS(summary.debtAgorot), link.url],
       };
+      // Message history never keeps the personal link itself.
+      stored = { text: renderReminder(tenant.reminderTemplate, { ...vars, link: "[קישור אישי]" }) };
     }
-    await tx.outboundMessage.update({ where: { id: messageId }, data: { status: "sending", attemptedAt: now, body: body ?? undefined } });
+    await tx.outboundMessage.update({ where: { id: messageId }, data: { status: "sending", attemptedAt: now, body: stored ?? undefined } });
     await tx.saaSSubscription.updateMany({ where: { tenantId }, data: { messagesUsed: { increment: 1 } } });
-    return { msg, phone: c.phone!, integration, body };
+    return { msg, phone: c.phone!, integration, body, template };
   });
   if (!prepared) return { sent: false };
 
@@ -105,6 +110,8 @@ export async function dispatchMessage(tenantId: string, messageId: string, now =
     to: prepared.phone,
     idempotencyKey: prepared.msg.idempotencyKey,
     text: prepared.body?.text,
+    // Business-initiated messages on the official API must be templates; replies (menu) stay free text.
+    template: prepared.integration.provider === "whatsapp_cloud" && prepared.msg.kind !== "menu_reply" ? prepared.template : undefined,
   });
   await withContext(ctx, async (tx) => {
     if (result.status === "accepted")

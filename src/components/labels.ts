@@ -14,6 +14,7 @@ export const MSG_STATUS: Record<string, string> = {
   read: "נקראה",
   failed: "נכשלה",
   unknown: "מצב לא ידוע",
+  handed_off: "נפתחה בוואטסאפ של הגבאי",
 };
 export const SKIP_REASON: Record<string, string> = {
   no_debt: "אין חוב",
