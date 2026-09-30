@@ -1,9 +1,10 @@
 import type { Tx } from "../db/client";
 import type { Actor } from "../db/context";
-import { DomainError, isUniqueViolation, notFound } from "../errors";
+import { DomainError, notFound } from "../errors";
 import { assertAgorot } from "../money";
 import { audit } from "../audit";
 import { loadCard, paymentFigures, pledgeFigures } from "./balance";
+import { tenantSettings } from "../settings";
 
 // All ledger mutations for a card run while holding a row lock on that card (SELECT ... FOR UPDATE).
 // This serialises concurrent payments / refunds / corrections of the same card, so a pledge can never
@@ -98,7 +99,8 @@ export async function createPledge(tx: Tx, tenantId: string, actor: Actor, input
       createdBy: actor.id,
     },
   });
-  await applyAvailableCredit(tx, tenantId, input.congregantId, { createdBy: actor.id });
+  // The gabbai decides whether existing credit is used for new pledges automatically.
+  if ((await tenantSettings(tx, tenantId)).autoApplyCredit) await applyAvailableCredit(tx, tenantId, input.congregantId, { createdBy: actor.id });
   await audit(tx, tenantId, actor, "pledge.create", { type: "Pledge", id: pledge.id }, { amountAgorot: input.amountAgorot });
   return { pledge, duplicate: false };
 }

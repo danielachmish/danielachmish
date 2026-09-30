@@ -36,3 +36,21 @@ describe("reminder due date", () => {
     expect(reminderDueAt({ oldestOpenDate: base, lastReminderAt: last, firstDelayDays: 7, intervalDays: 30 }).toISOString()).toBe("2026-10-10T07:00:00.000Z");
   });
 });
+
+describe("gabbai-defined send policy", () => {
+  it("custom days and time (Tuesday only, 18:30)", () => {
+    const p = { days: [2], hour: 18, minute: 30, skipHolidays: true };
+    expect(local(nextSendWindow(new Date("2026-11-02T05:00:00Z"), p))).toBe("2026-11-03 18:30 Tue");
+    expect(local(nextSendWindow(new Date("2026-11-03T17:00:00Z"), p))).toBe("2026-11-10 18:30 Tue");
+  });
+  it("holidays can be allowed explicitly", () => {
+    const p = { days: [0, 1, 2, 3, 4, 5, 6], hour: 10, minute: 0, skipHolidays: false };
+    expect(local(nextSendWindow(new Date("2026-09-21T03:00:00Z"), p))).toBe("2026-09-21 10:00 Mon"); // Yom Kippur
+  });
+  it("Friday can be enabled", () => {
+    expect(local(nextSendWindow(new Date("2026-11-06T05:00:00Z"), { days: [5], hour: 9, minute: 0, skipHolidays: true }))).toBe("2026-11-06 09:00 Fri");
+  });
+  it("no days → error (UI prevents saving this while enabled)", () => {
+    expect(() => nextSendWindow(new Date(), { days: [], hour: 10, minute: 0, skipHolidays: true })).toThrow();
+  });
+});

@@ -6,7 +6,23 @@ import { Alert, Button, Card, Field, Input, Money, Select, Textarea } from "@/co
 
 const NET = { ok: false as const, error: "אין חיבור לשרת. נסו שוב." };
 
-export function PayPanel({ congregantId, debtAgorot, pledges }: { congregantId: string; debtAgorot: number; pledges: { id: string; label: string; outstanding: number }[] }) {
+export function PayPanel({
+  congregantId,
+  debtAgorot,
+  pledges,
+  allowPartial,
+  allowSelect,
+  minPartialAgorot,
+}: {
+  congregantId: string;
+  debtAgorot: number;
+  pledges: { id: string; label: string; outstanding: number }[];
+  allowPartial: boolean;
+  allowSelect: boolean;
+  minPartialAgorot: number;
+}) {
+  // Only the payment options the synagogue enabled are offered.
+  const modes = (["full", "partial", "select"] as const).filter((m) => m === "full" || (m === "partial" ? allowPartial : allowSelect && pledges.length > 1));
   const [mode, setMode] = useState<"full" | "partial" | "select">("full");
   const [selected, setSelected] = useState<string[]>([]);
   const [amount, setAmount] = useState("");
@@ -18,15 +34,17 @@ export function PayPanel({ congregantId, debtAgorot, pledges }: { congregantId: 
   return (
     <Card title="תשלום מאובטח">
       <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1 text-sm" role="radiogroup" aria-label="אופן תשלום">
-          {(["full", "partial", "select"] as const).map((m) => (
+        {modes.length > 1 && (
+        <div className={`grid gap-1 rounded-lg bg-slate-100 p-1 text-sm ${modes.length === 3 ? "grid-cols-3" : "grid-cols-2"}`} role="radiogroup" aria-label="אופן תשלום">
+          {modes.map((m) => (
             <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`min-h-10 rounded-md ${mode === m ? "bg-white shadow" : ""}`}>
               {m === "full" ? "הכול" : m === "partial" ? "סכום חלקי" : "בחירת נדרים"}
             </button>
           ))}
         </div>
+        )}
         {mode === "full" && <p>לתשלום: <Money agorot={debtAgorot} className="font-bold" /></p>}
-        {mode === "partial" && <Field label="סכום לתשלום (₪)"><Input inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>}
+        {mode === "partial" && <Field label="סכום לתשלום (₪)" hint={minPartialAgorot > 0 ? `מינימום ${minPartialAgorot / 100} ₪` : undefined}><Input inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>}
         {mode === "select" && (
           <fieldset className="space-y-2">
             {pledges.map((p) => (

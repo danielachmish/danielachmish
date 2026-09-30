@@ -1,7 +1,7 @@
 import { systemCtx, withContext } from "./db/context";
 import { receiptProvider } from "./providers/registry";
 import { formatILS } from "./money";
-import { isUniqueViolation } from "./errors";
+import { tenantSettings } from "./settings";
 
 const MAX_ATTEMPTS = 5;
 
@@ -51,9 +51,10 @@ async function handle(tx: Parameters<Parameters<typeof withContext>[1]>[0], tena
     const p = await tx.payment.findUniqueOrThrow({ where: { id: payload.paymentId! } });
     const c = await tx.congregant.findUniqueOrThrow({ where: { id: p.congregantId } });
     if (!c.phone || c.messagingOptOut) return null;
-    try {
-      const m = await tx.outboundMessage.create({
-        data: {
+    if (!(await tenantSettings(tx, tenantId)).paymentConfirmationMessage) return null;
+    const r = await tx.outboundMessage.createMany({
+      data: [
+        {
           tenantId,
           congregantId: c.id,
           kind: "confirmation",
@@ -61,16 +62,16 @@ async function handle(tx: Parameters<Parameters<typeof withContext>[1]>[0], tena
           scheduledFor: new Date(),
           body: { text: `התקבל תשלום של ${formatILS(p.amountAgorot)}. תודה!` },
         },
-      });
-      return m.id;
-    } catch (e) {
-      if (isUniqueViolation(e)) return null;
-      throw e;
-    }
+      ],
+      skipDuplicates: true,
+    });
+    if (!r.count) return null;
+    return (await tx.outboundMessage.findUniqueOrThrow({ where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: `confirm:${p.id}` } } })).id;
   }
   if (topic === "receipt") {
     const provider = receiptProvider();
     if (!provider) return null; // no receipt service connected (open decision) – nothing to do
+    if (!(await tenantSettings(tx, tenantId)).autoReceipts) return null; // gabbai issues receipts himself
     const p = await tx.payment.findUniqueOrThrow({ where: { id: payload.paymentId! } });
     const c = await tx.congregant.findUniqueOrThrow({ where: { id: p.congregantId } });
     await provider.issueReceipt({ tenantId, paymentId: p.id, amountAgorot: p.amountAgorot, payerName: `${c.firstName} ${c.lastName}`, method: p.method });

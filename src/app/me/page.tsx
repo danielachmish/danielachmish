@@ -38,7 +38,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ c?:
         {o.summary.pendingExternalAgorot > 0 && <p className="mt-1 text-sm text-amber-800">ממתין לאישור הגבאי: <Money agorot={o.summary.pendingExternalAgorot} /></p>}
         {o.openTasks > 0 && <p className="mt-1 text-sm text-slate-600">יש פנייה פתוחה בטיפול הגבאי.</p>}
       </Card>
-      {o.summary.debtAgorot > 0 && <PayPanel congregantId={cid} debtAgorot={o.summary.debtAgorot} pledges={open.map((x) => ({ id: x.id, label: `${fmtDate(x.date)} ${x.description ?? (x.kind === "opening_balance" ? "יתרת פתיחה" : "נדר")}`, outstanding: x.outstanding }))} />}
+      {o.summary.debtAgorot > 0 && <PayPanel congregantId={cid} debtAgorot={o.summary.debtAgorot} allowPartial={o.options.portalPartialPayment} allowSelect={o.options.portalSelectPledges} minPartialAgorot={o.options.portalMinPartialAgorot} pledges={open.map((x) => ({ id: x.id, label: `${fmtDate(x.date)} ${x.description ?? (x.kind === "opening_balance" ? "יתרת פתיחה" : "נדר")}`, outstanding: x.outstanding }))} />}
       <Card title="נדרים">
         <ul className="divide-y divide-slate-100 text-sm">
           {o.pledges.map((x) => (
@@ -61,8 +61,8 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ c?:
           </ul>
         )}
       </Card>
-      <ReportPanel congregantId={cid} />
-      <InquiryPanel congregantId={cid} />
+      {o.options.portalReportExternalPayment && <ReportPanel congregantId={cid} />}
+      {o.options.portalInquiry && <InquiryPanel congregantId={cid} />}
       {!o.optedOut ? <OptOutButton congregantId={cid} /> : <p className="text-sm text-slate-500">ביקשת לא לקבל תזכורות.</p>}
     </main>
   );

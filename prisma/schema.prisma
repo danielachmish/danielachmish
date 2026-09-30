@@ -89,9 +89,17 @@ model Tenant {
   name      String
   city      String?
   timezone  String   @default("Asia/Jerusalem")
-  // Reminder policy (days) – configurable per tenant, defaults per product plan.
-  reminderFirstDelayDays Int @default(7)
-  reminderIntervalDays   Int @default(30)
+  // Reminder policy – decided by the head gabbai in the settings screen.
+  remindersEnabled       Boolean @default(true) // automatic reminders on/off (manual sending always available)
+  reminderFirstDelayDays Int     @default(7)
+  reminderIntervalDays   Int     @default(30)
+  reminderDays           Int[]   @default([0, 1, 2, 3, 4]) // 0 = Sunday … 6 = Saturday (local)
+  reminderHour           Int     @default(10)
+  reminderMinute         Int     @default(0)
+  reminderSkipHolidays   Boolean @default(true)
+  reminderTemplate       String? // custom text with placeholders; null = default text
+  // All other behaviour the gabbai controls (validated with defaults in src/server/settings.ts).
+  settings               Json    @default("{}")
   createdAt DateTime @default(now())
 
   memberships   Membership[]
@@ -428,6 +436,9 @@ model OutboundMessage {
   providerMessageId String?
   providerStatus    String?
   body              Json?
+  trigger           String    @default("auto") // auto | manual | manual_bulk
+  overrideSoft      Boolean   @default(false)  // gabbai chose to send despite an open inquiry / pending payment
+  requestedBy       String?
   createdAt         DateTime  @default(now())
 
   @@unique([tenantId, idempotencyKey])

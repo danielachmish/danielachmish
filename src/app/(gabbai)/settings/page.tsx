@@ -2,6 +2,8 @@ import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
 import { Badge, Card, LinkButton, fmtDate } from "@/components/ui";
 import { GeneralSettings, IntegrationForm, SupportGrantForm } from "@/components/gabbai/settings-forms";
+import { BehaviourForm, ReminderPolicyForm } from "@/components/gabbai/policy-forms";
+import { parseSettings } from "@/server/settings";
 
 const SUB: Record<string, string> = { trial: "ניסיון", active: "פעיל", past_due: "ממתין לתשלום", grace: "תקופת חסד", suspended: "מושעה", cancelled: "מבוטל" };
 
@@ -18,9 +20,37 @@ export default async function Settings() {
   return (
     <>
       <h1 className="text-2xl font-bold">הגדרות</h1>
-      <Card title="פרטי בית הכנסת ותזכורות">
-        <GeneralSettings name={d.tenant.name} first={d.tenant.reminderFirstDelayDays} interval={d.tenant.reminderIntervalDays} />
+      <nav aria-label="קיצורים" className="flex flex-wrap gap-2 text-sm">
+        {[["#reminders", "תזכורות"], ["#behaviour", "התנהגות המערכת"], ["#integrations", "חיבורים"], ["#export", "ייצוא"], ["#support", "תמיכה"]].map(([h, l]) => (
+          <a key={h} href={h} className="rounded-full border border-slate-300 bg-white px-3 py-1 hover:bg-slate-100">{l}</a>
+        ))}
+      </nav>
+      <Card title="פרטי בית הכנסת">
+        <GeneralSettings name={d.tenant.name} />
       </Card>
+      <div id="reminders" className="scroll-mt-28">
+        <Card title="תזכורות – מתי ואיך">
+          <ReminderPolicyForm
+            synagogueName={d.tenant.name}
+            initial={{
+              enabled: d.tenant.remindersEnabled,
+              firstDelayDays: d.tenant.reminderFirstDelayDays,
+              intervalDays: d.tenant.reminderIntervalDays,
+              days: d.tenant.reminderDays,
+              hour: d.tenant.reminderHour,
+              minute: d.tenant.reminderMinute,
+              skipHolidays: d.tenant.reminderSkipHolidays,
+              template: d.tenant.reminderTemplate,
+            }}
+          />
+        </Card>
+      </div>
+      <div id="behaviour" className="scroll-mt-28">
+        <Card title="התנהגות המערכת">
+          <BehaviourForm initial={parseSettings(d.tenant.settings)} />
+        </Card>
+      </div>
+      <div id="integrations" className="scroll-mt-28 space-y-4">
       {(["payment", "messaging"] as const).map((k) => {
         const a = active(k);
         return (
@@ -38,6 +68,7 @@ export default async function Settings() {
           </Card>
         );
       })}
+      </div>
       <Card title="מנוי">
         {d.sub ? (
           <p className="text-sm">
@@ -49,13 +80,15 @@ export default async function Settings() {
           <p className="text-sm">אין מנוי רשום.</p>
         )}
       </Card>
-      <Card title="ייצוא נתונים">
+      <Card title="ייצוא נתונים" className="scroll-mt-28" >
+        <span id="export" />
         <div className="flex flex-wrap gap-2">
           <LinkButton variant="secondary" href="/api/export/balances" prefetch={false}>יתרות מתפללים (CSV)</LinkButton>
           <LinkButton variant="secondary" href="/api/export/ledger" prefetch={false}>כל התנועות וההקצאות (CSV)</LinkButton>
         </div>
       </Card>
       <Card title="גישת תמיכה זמנית">
+        <span id="support" />
         <p className="mb-2 text-sm text-slate-600">צוות השירות אינו רואה נתוני מתפללים. אפשר לתת גישה מוגבלת בזמן ובהיקף; כל צפייה מתועדת.</p>
         <SupportGrantForm grants={d.grants.map((x) => ({ id: x.id, scope: x.scope, reason: x.reason, expiresAt: x.expiresAt.toISOString() }))} />
       </Card>

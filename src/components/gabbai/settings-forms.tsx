@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { connectIntegrationAction, revokeSupportGrantAction, supportGrantAction, updateSettingsAction } from "@/app/(gabbai)/actions";
+import { connectIntegrationAction, revokeSupportGrantAction, supportGrantAction, updateGeneralSettingsAction } from "@/app/(gabbai)/actions";
 import type { ActionResult } from "@/server/actions/result";
 import { Alert, Button, Field, Input, Select } from "../ui";
 
@@ -20,21 +20,19 @@ function useAct() {
   return { act, busy, note: msg && <Alert tone={msg.ok ? "success" : "error"}>{msg.text}</Alert> };
 }
 
-export function GeneralSettings({ name, first, interval }: { name: string; first: number; interval: number }) {
+export function GeneralSettings({ name }: { name: string }) {
   const { act, busy, note } = useAct();
   return (
     <form
-      className="grid gap-3 sm:grid-cols-3"
+      className="flex flex-wrap items-end gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        const f = new FormData(e.currentTarget);
-        act(() => updateSettingsAction({ name: String(f.get("name")), reminderFirstDelayDays: Number(f.get("first")), reminderIntervalDays: Number(f.get("interval")) }));
+        act(() => updateGeneralSettingsAction({ name: String(new FormData(e.currentTarget).get("name")) }));
       }}
     >
       <Field label="שם בית הכנסת"><Input name="name" defaultValue={name} required /></Field>
-      <Field label="תזכורת ראשונה (ימים)"><Input name="first" type="number" inputMode="numeric" min={0} max={120} defaultValue={first} /></Field>
-      <Field label="מרווח בין תזכורות (ימים)"><Input name="interval" type="number" inputMode="numeric" min={7} max={365} defaultValue={interval} /></Field>
-      <div className="flex items-center gap-3 sm:col-span-3"><Button disabled={busy}>שמירה</Button>{note}</div>
+      <Button disabled={busy}>שמירה</Button>
+      {note}
     </form>
   );
 }

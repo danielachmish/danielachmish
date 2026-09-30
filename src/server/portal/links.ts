@@ -5,6 +5,7 @@ import { DomainError } from "../errors";
 import { identityProvider } from "../providers/registry";
 import { maskPhone } from "../util/phone";
 import type { Tx } from "../db/client";
+import { tenantSettings } from "../settings";
 
 // Personal link = random token (never contains name, phone or amount). Only its SHA-256 is stored.
 // Financial details are shown only after an OTP sent to the card's authorised phone.
@@ -16,7 +17,8 @@ const OTP_MAX_PER_15_MIN = 3;
 const OTP_MAX_PER_DAY = 10;
 const SESSION_TTL_HOURS = 12;
 
-export async function issuePersonalLink(tx: Tx, tenantId: string, congregantId: string, createdBy: string, ttlDays = LINK_TTL_DAYS) {
+export async function issuePersonalLink(tx: Tx, tenantId: string, congregantId: string, createdBy: string, ttlDays?: number) {
+  ttlDays ??= (await tenantSettings(tx, tenantId)).personalLinkDays ?? LINK_TTL_DAYS;
   const token = randomToken();
   await tx.personalLink.create({
     data: { tenantId, congregantId, tokenHash: sha256(token), expiresAt: new Date(Date.now() + ttlDays * 86400_000), createdBy },

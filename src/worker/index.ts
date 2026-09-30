@@ -17,7 +17,8 @@ async function main() {
   const TZ = { tz: "Asia/Jerusalem" };
   await boss.schedule(QUEUES.sweep, "* * * * *");
   await boss.schedule(QUEUES.pollOpenPayments, "*/5 * * * *");
-  await boss.schedule(QUEUES.reminderScan, "0 7 * * 0-4", null, TZ); // prepares the 10:00 window
+  // Hourly: each synagogue has its own days/hour; the scan schedules for that synagogue's next window.
+  await boss.schedule(QUEUES.reminderScan, "5 * * * *", null, TZ);
   await boss.schedule(QUEUES.reconcile, "30 3 * * *", null, TZ);
   await boss.schedule(QUEUES.subscriptions, "0 4 * * *", null, TZ);
 

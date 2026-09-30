@@ -5,6 +5,8 @@ import { notFound } from "../errors";
 import { audit } from "../audit";
 import { portalCtx, type PortalIdentity } from "./links";
 import type { Tx } from "../db/client";
+import { DomainError } from "../errors";
+import { parseSettings, tenantSettings } from "../settings";
 
 export async function portalOverview(p: PortalIdentity, congregantId = p.primaryCongregantId) {
   if (!p.congregantIds.includes(congregantId)) throw notFound("הכרטיס");
@@ -16,6 +18,7 @@ export async function portalOverview(p: PortalIdentity, congregantId = p.primary
     const others = await tx.congregant.findMany({ where: { id: { in: p.congregantIds } }, select: { id: true, firstName: true, lastName: true } });
     const openTasks = await tx.task.count({ where: { congregantId, status: "open", kind: { in: ["inquiry", "external_payment"] } } });
     return {
+      options: parseSettings(tenant.settings),
       synagogueName: tenant.name,
       name: `${c.firstName} ${c.lastName}`,
       optedOut: c.messagingOptOut,
@@ -47,9 +50,11 @@ export async function portalReportPayment(
   input: { congregantId: string; amountAgorot: number; method: "cash" | "transfer" | "check"; reference?: string; note?: string; clientOpId: string },
 ) {
   if (!p.congregantIds.includes(input.congregantId)) throw notFound("הכרטיס");
-  return withContext(portalCtx(p), (tx) =>
-    reportExternalPayment(tx, p.tenantId, { type: "congregant", id: input.congregantId }, { ...input, approveNow: false }),
-  );
+  return withContext(portalCtx(p), async (tx) => {
+    if (!(await tenantSettings(tx, p.tenantId)).portalReportExternalPayment)
+      throw new DomainError("report_disabled", "דיווח על תשלום אינו זמין כאן. אפשר לפנות לגבאי.", 409);
+    return reportExternalPayment(tx, p.tenantId, { type: "congregant", id: input.congregantId }, { ...input, approveNow: false });
+  });
 }
 
 export async function openInquiry(tx: Tx, tenantId: string, congregantId: string, text: string, source: string) {
@@ -62,7 +67,10 @@ export async function openInquiry(tx: Tx, tenantId: string, congregantId: string
 
 export async function portalInquiry(p: PortalIdentity, congregantId: string, text: string) {
   if (!p.congregantIds.includes(congregantId)) throw notFound("הכרטיס");
-  return withContext(portalCtx(p), (tx) => openInquiry(tx, p.tenantId, congregantId, text, "portal"));
+  return withContext(portalCtx(p), async (tx) => {
+    if (!(await tenantSettings(tx, p.tenantId)).portalInquiry) throw new DomainError("inquiry_disabled", "פנייה לבירור אינה זמינה כאן. אפשר לפנות לגבאי.", 409);
+    return openInquiry(tx, p.tenantId, congregantId, text, "portal");
+  });
 }
 
 export async function setOptOut(tx: Tx, tenantId: string, congregantId: string, source: string, actorType: "congregant" | "gabbai") {

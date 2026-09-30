@@ -10,10 +10,20 @@ import { formatILS } from "../money";
 import { issuePersonalLink } from "../portal/links";
 import { openInquiry, setOptOut } from "../portal/actions";
 import type { Tx } from "../db/client";
+import { parseSettings, type TenantSettings } from "../settings";
 
 // Fixed menu – no AI. Inbound messages are routed by the synagogue's WhatsApp account, never by the sender alone.
-export const MENU_TEXT =
-  "תפריט:\n1 – היתרה שלי\n2 – לתשלום\n3 – שילמתי בדרך אחרת\n4 – בירור חוב\n5 – הפסקת תזכורות\nאפשר להשיב במספר האפשרות.";
+export function menuText(s: Pick<TenantSettings, "portalReportExternalPayment" | "portalInquiry">) {
+  return [
+    "תפריט:",
+    "1 – היתרה שלי",
+    "2 – לתשלום",
+    ...(s.portalReportExternalPayment ? ["3 – שילמתי בדרך אחרת"] : []),
+    ...(s.portalInquiry ? ["4 – בירור חוב"] : []),
+    "5 – הפסקת תזכורות",
+    "אפשר להשיב במספר האפשרות.",
+  ].join("\n");
+}
 
 export async function receiveMessagingWebhook(providerName: string, headers: Headers, rawBody: string) {
   const provider = messagingProvider(providerName);
@@ -54,15 +64,13 @@ export async function receiveMessagingWebhook(providerName: string, headers: Hea
 }
 
 async function queueReply(tx: Tx, tenantId: string, congregantId: string, key: string, text: string) {
-  try {
-    const m = await tx.outboundMessage.create({
-      data: { tenantId, congregantId, kind: "menu_reply", idempotencyKey: `reply:${key}`, scheduledFor: new Date(), body: { text } },
-    });
-    return m.id;
-  } catch (e) {
-    if (isUniqueViolation(e)) return null;
-    throw e;
-  }
+  // ON CONFLICT DO NOTHING keeps the surrounding transaction valid on a duplicate delivery.
+  const r = await tx.outboundMessage.createMany({
+    data: [{ tenantId, congregantId, kind: "menu_reply", idempotencyKey: `reply:${key}`, scheduledFor: new Date(), body: { text } }],
+    skipDuplicates: true,
+  });
+  if (!r.count) return null;
+  return (await tx.outboundMessage.findUniqueOrThrow({ where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: `reply:${key}` } } })).id;
 }
 
 /** Handles a stored inbound event. Idempotent per provider message id. Returns ids of replies to dispatch. */
@@ -77,6 +85,7 @@ export async function processMessagingEvent(tenantId: string, eventId: string) {
       await tx.outboundMessage.updateMany({ where: { providerMessageId: s.providerMessageId }, data: { status: s.status === "sent" ? "accepted" : s.status } });
     }
     const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    const opts = parseSettings(tenant.settings);
     for (const m of parsed.messages) {
       const phone = normalizePhone(m.from);
       const cards = phone ? await tx.congregant.findMany({ where: { phone }, orderBy: { createdAt: "asc" } }) : [];
@@ -94,16 +103,16 @@ export async function processMessagingEvent(tenantId: string, eventId: string) {
           choice === "1"
             ? `היתרה הפתוחה ב${tenant.name}: ${formatILS(s.debtAgorot)}${s.creditAgorot ? `, זכות: ${formatILS(s.creditAgorot)}` : ""}. לפירוט: ${link.url}`
             : `לתשלום מאובטח (אפשר גם סכום חלקי): ${link.url}`;
-      } else if (choice === "3") {
+      } else if (choice === "3" && opts.portalReportExternalPayment) {
         await tx.task.create({
           data: { tenantId, kind: "external_payment", congregantId: card.id, summary: "המתפלל דיווח בוואטסאפ ששילם בדרך אחרת", pausesReminders: true, details: { source: "whatsapp" } },
         });
         text = "תודה. הגבאי יבדוק את הדיווח. עד אז לא יישלחו תזכורות. אפשר לפרט סכום ואמצעי תשלום גם בעמוד האישי.";
-      } else if (choice === "4") {
+      } else if (choice === "4" && opts.portalInquiry) {
         await openInquiry(tx, tenantId, card.id, m.text, "whatsapp");
         text = "פנייתך לבירור התקבלה והועברה לגבאי. התזכורות מושהות עד לטיפול.";
       } else {
-        text = MENU_TEXT;
+        text = menuText(opts);
       }
       const id = await queueReply(tx, tenantId, card.id, m.providerMessageId, text);
       if (id) replies.push(id);

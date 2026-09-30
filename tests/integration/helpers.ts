@@ -66,3 +66,7 @@ export async function makeSubscription(tenantId: string, status = "active") {
     tx.saaSSubscription.upsert({ where: { tenantId }, create: { tenantId, status }, update: { status } }),
   );
 }
+
+export async function setTenant(tenantId: string, data: Record<string, unknown>) {
+  return withContext(tenantCtx(tenantId, gabbai()), (tx) => tx.tenant.update({ where: { id: tenantId }, data }));
+}

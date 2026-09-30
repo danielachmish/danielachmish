@@ -15,6 +15,7 @@ import {
   PersonalLinkButtons,
 } from "@/components/gabbai/card-actions";
 import { TASK_LABEL } from "@/components/labels";
+import { ApplyCreditButton, SendReminderNow } from "@/components/gabbai/reminder-controls";
 
 const REASON: Record<string, string> = { payment: "תשלום", credit_apply: "שימוש בזכות", refund: "החזר", pledge_reduction: "הפחתת נדר" };
 
@@ -51,6 +52,12 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
         <Summary label="זכות" agorot={s.creditAgorot} tone={s.creditAgorot > 0 ? "text-green-700" : ""} />
         <Summary label="ממתין לאישור" agorot={s.pendingExternalAgorot} />
       </div>
+
+      {s.creditAgorot > 0 && s.debtAgorot > 0 && (
+        <Card title="יש לכרטיס זכות וגם חוב">
+          <ApplyCreditButton congregantId={c.id} />
+        </Card>
+      )}
 
       {tasks.length > 0 && (
         <Card title="משימות פתוחות לכרטיס">
@@ -152,6 +159,12 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
           </p>
           <ConsentButtons congregantId={c.id} granted={!!consent?.granted && !c.messagingOptOut} hasPhone={!!c.phone} />
           <hr className="my-3 border-slate-100" />
+          {s.debtAgorot > 0 && (
+            <>
+              <SendReminderNow congregantId={c.id} />
+              <hr className="my-3 border-slate-100" />
+            </>
+          )}
           <PersonalLinkButtons congregantId={c.id} />
         </Card>
         <Card title="הרשאות משפחה">

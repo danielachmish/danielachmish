@@ -6,6 +6,7 @@ import { assertAgorot } from "../money";
 import { paymentProvider, toIntegrationRef } from "../providers/registry";
 import { canCreatePaymentRequests, subscriptionOf } from "../billing/policy";
 import { audit } from "../audit";
+import { tenantSettings } from "../settings";
 
 const REQUEST_TTL_MIN = 60;
 
@@ -42,6 +43,16 @@ export async function createPaymentRequest(ctx: DbContext & { tenantId: string }
     const integration = await activePaymentIntegration(tx);
     if (!integration) throw new DomainError("no_payment_integration", "בית הכנסת עדיין לא חיבר סליקה. אפשר לפנות לגבאי.", 409);
 
+    // Options the gabbai controls (apply to the congregant's own choices only).
+    if (input.via !== "gabbai") {
+      const s = await tenantSettings(tx, tenantId);
+      if (input.pledgeIds?.length && !s.portalSelectPledges)
+        throw new DomainError("select_disabled", "בית הכנסת אינו מאפשר בחירת נדרים לתשלום. אפשר לשלם את כל היתרה.", 409);
+      if (input.amountAgorot !== undefined && !s.portalPartialPayment)
+        throw new DomainError("partial_disabled", "בית הכנסת אינו מאפשר תשלום חלקי. אפשר לשלם את כל היתרה.", 409);
+      if (input.amountAgorot !== undefined && s.portalMinPartialAgorot > 0 && input.amountAgorot < s.portalMinPartialAgorot)
+        throw new DomainError("below_minimum", `הסכום המינימלי לתשלום חלקי הוא ${s.portalMinPartialAgorot / 100} ₪.`, 409);
+    }
     // Re-check the balance right before creating the request.
     const congregant = await tx.congregant.findUnique({ where: { id: input.congregantId } });
     if (!congregant) throw notFound("כרטיס המתפלל");

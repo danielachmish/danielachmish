@@ -1,7 +1,7 @@
 import { withContext, type Actor } from "../db/context";
 import { planConfig } from "../config";
 import { saasBillingProvider } from "../providers/registry";
-import { DomainError, isUniqueViolation } from "../errors";
+import { DomainError } from "../errors";
 import { audit } from "../audit";
 import type { SubStatus } from "./policy";
 
@@ -62,14 +62,11 @@ export async function runSubscriptionCycle(tenantId: string, now = new Date()) {
 
   const periodStart = periodEnd;
   const invoice = await withContext({ kind: "system", tenantId }, async (tx) => {
-    try {
-      return await tx.saaSInvoice.create({
-        data: { tenantId, subscriptionId: sub.id, periodStart, periodEnd: addMonths(periodStart, 1), amountAgorot: cfg.priceAgorot },
-      });
-    } catch (e) {
-      if (!isUniqueViolation(e)) throw e;
-      return tx.saaSInvoice.findUniqueOrThrow({ where: { subscriptionId_periodStart: { subscriptionId: sub.id, periodStart } } });
-    }
+    await tx.saaSInvoice.createMany({
+      data: [{ tenantId, subscriptionId: sub.id, periodStart, periodEnd: addMonths(periodStart, 1), amountAgorot: cfg.priceAgorot }],
+      skipDuplicates: true,
+    });
+    return tx.saaSInvoice.findUniqueOrThrow({ where: { subscriptionId_periodStart: { subscriptionId: sub.id, periodStart } } });
   });
   if (invoice.status === "paid") return { action: "none" };
   if (invoice.amountAgorot === 0) return markInvoicePaid(tenantId, invoice.id, { provider: "manual", chargeId: `zero-${invoice.id}`, recordedBy: "system", note: "מחיר מסלול 0 בתצורה" });
@@ -101,13 +98,10 @@ export async function markInvoicePaid(
   return withContext({ kind: "system", tenantId }, async (tx) => {
     const inv = await tx.saaSInvoice.findUniqueOrThrow({ where: { id: invoiceId } });
     if (inv.status === "paid") return { action: "already_paid" };
-    try {
-      await tx.saaSCharge.create({
-        data: { tenantId, invoiceId, provider: opts.provider, providerChargeId: opts.chargeId, amountAgorot: inv.amountAgorot, status: "succeeded", recordedBy: opts.recordedBy, note: opts.note },
-      });
-    } catch (e) {
-      if (!isUniqueViolation(e)) throw e;
-    }
+    await tx.saaSCharge.createMany({
+      data: [{ tenantId, invoiceId, provider: opts.provider, providerChargeId: opts.chargeId, amountAgorot: inv.amountAgorot, status: "succeeded", recordedBy: opts.recordedBy, note: opts.note }],
+      skipDuplicates: true,
+    });
     await tx.saaSInvoice.update({ where: { id: invoiceId }, data: { status: "paid", paidAt: new Date() } });
     await tx.saaSSubscription.update({
       where: { tenantId },

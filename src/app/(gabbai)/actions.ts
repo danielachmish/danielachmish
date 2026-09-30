@@ -7,7 +7,10 @@ import { withContext } from "@/server/db/context";
 import { run, type ActionResult } from "@/server/actions/result";
 import { DomainError } from "@/server/errors";
 import { parseShekelsToAgorot } from "@/server/money";
-import { adjustPledge, createPledge, decideExternalPayment, reportExternalPayment } from "@/server/ledger/engine";
+import { adjustPledge, applyAvailableCredit, createPledge, decideExternalPayment, lockCard, reportExternalPayment } from "@/server/ledger/engine";
+import { tenantSettingsSchema, type TenantSettings } from "@/server/settings";
+import { validateTemplate } from "@/server/reminders/template";
+import { bulkReminderPreview, cancelScheduledReminder, rescheduleAfterPolicyChange, sendBulkRemindersNow, sendReminderNow } from "@/server/reminders/service";
 import { createCongregant, grantFamilyAccess, recordConsent, updateCongregant, type CongregantInput } from "@/server/gabbai/congregants";
 import { commitCongregantImport, parseDate, previewCongregantImport, type ColumnMap } from "@/server/gabbai/import-export";
 import { issuePersonalLink, revokeLinks } from "@/server/portal/links";
@@ -199,18 +202,122 @@ export async function revokeLinksAction(congregantId: string) {
   }, "כל הקישורים האישיים של הכרטיס בוטלו.");
 }
 
-export async function updateSettingsAction(input: { name: string; reminderFirstDelayDays: number; reminderIntervalDays: number }) {
+export async function updateGeneralSettingsAction(input: { name: string }) {
   return run(async () => {
     const g = await requireGabbai();
     if (!input.name.trim()) throw new DomainError("name_required", "יש להזין שם.");
-    const first = z.number().int().min(0).max(120).parse(input.reminderFirstDelayDays);
-    const interval = z.number().int().min(7).max(365).parse(input.reminderIntervalDays);
     await withContext(g.ctx, async (tx) => {
-      await tx.tenant.update({ where: { id: g.tenantId }, data: { name: input.name.trim(), reminderFirstDelayDays: first, reminderIntervalDays: interval } });
-      await audit(tx, g.tenantId, g.actor, "tenant.settings", undefined, { first, interval });
+      await tx.tenant.update({ where: { id: g.tenantId }, data: { name: input.name.trim() } });
+      await audit(tx, g.tenantId, g.actor, "tenant.settings.general");
+    });
+    revalidatePath("/settings");
+  }, "נשמר.");
+}
+
+const reminderPolicy = z.object({
+  enabled: z.boolean(),
+  firstDelayDays: z.number().int().min(0).max(365),
+  intervalDays: z.number().int().min(1).max(365),
+  days: z.array(z.number().int().min(0).max(6)).max(7),
+  hour: z.number().int().min(0).max(23),
+  minute: z.number().int().min(0).max(59),
+  skipHolidays: z.boolean(),
+  template: z.string().max(700).nullable(),
+});
+
+/** The gabbai decides whether automatic reminders run, and exactly when and how. */
+export async function updateReminderPolicyAction(input: z.infer<typeof reminderPolicy>) {
+  return run(async () => {
+    const g = await requireGabbai();
+    const p = reminderPolicy.parse(input);
+    if (p.enabled && p.days.length === 0) throw new DomainError("no_days", "יש לבחור לפחות יום אחד לשליחה, או לכבות תזכורות אוטומטיות.");
+    const template = p.template?.trim() ? p.template.trim() : null;
+    if (template) {
+      const err = validateTemplate(template);
+      if (err) throw new DomainError("bad_template", err);
+    }
+    await withContext(g.ctx, async (tx) => {
+      await tx.tenant.update({
+        where: { id: g.tenantId },
+        data: {
+          remindersEnabled: p.enabled,
+          reminderFirstDelayDays: p.firstDelayDays,
+          reminderIntervalDays: p.intervalDays,
+          reminderDays: [...new Set(p.days)].sort(),
+          reminderHour: p.hour,
+          reminderMinute: p.minute,
+          reminderSkipHolidays: p.skipHolidays,
+          reminderTemplate: template,
+        },
+      });
+      await rescheduleAfterPolicyChange(tx);
+      await audit(tx, g.tenantId, g.actor, "tenant.settings.reminders", undefined, { ...p, template: template ? "custom" : "default" });
+    });
+    revalidatePath("/settings");
+    revalidatePath("/reminders");
+  }, input.enabled ? "מדיניות התזכורות נשמרה. תזכורות שתוזמנו יתוזמנו מחדש לפי ההגדרות החדשות." : "תזכורות אוטומטיות כובו. אפשר עדיין לשלוח תזכורת ידנית.");
+}
+
+export async function updateBehaviourSettingsAction(input: Partial<TenantSettings>) {
+  return run(async () => {
+    const g = await requireGabbai();
+    const next = tenantSettingsSchema.parse(input);
+    await withContext(g.ctx, async (tx) => {
+      await tx.tenant.update({ where: { id: g.tenantId }, data: { settings: next } });
+      await audit(tx, g.tenantId, g.actor, "tenant.settings.behaviour", undefined, next);
     });
     revalidatePath("/settings");
   }, "ההגדרות נשמרו.");
+}
+
+export async function sendReminderNowAction(congregantId: string, overrideSoft: boolean, clientOpId: string) {
+  return run(async () => {
+    const g = await requireGabbai();
+    const r = await sendReminderNow(g.ctx, { congregantId: uuid.parse(congregantId), overrideSoft, clientOpId: opId.parse(clientOpId), requestedBy: g.userId });
+    revalidatePath(`/congregants/${congregantId}`);
+    revalidatePath("/reminders");
+    if (r.status === "sent" || r.status === "already_requested") return r;
+    throw new DomainError("not_sent", r.status === "unknown" ? "לא ידוע אם ההודעה נמסרה. היא לא תישלח שוב אוטומטית." : `התזכורת לא נשלחה (${r.skipReason ?? r.status}).`);
+  }, "התזכורת נשלחה.");
+}
+
+export async function bulkReminderPreviewAction() {
+  return run(async () => {
+    const g = await requireGabbai();
+    const p = await bulkReminderPreview(g.ctx);
+    return { eligible: p.eligible, skipped: p.skipped };
+  });
+}
+
+export async function bulkReminderSendAction(clientOpId: string) {
+  return run(async () => {
+    const g = await requireGabbai();
+    const r = await sendBulkRemindersNow(g.ctx, { clientOpId: opId.parse(clientOpId), requestedBy: g.userId });
+    revalidatePath("/reminders");
+    return r;
+  });
+}
+
+export async function cancelReminderAction(messageId: string) {
+  return run(async () => {
+    const g = await requireGabbai();
+    await cancelScheduledReminder(g.ctx, uuid.parse(messageId), g.userId);
+    revalidatePath("/reminders");
+  }, "התזכורת בוטלה.");
+}
+
+/** Used when automatic credit application is off: the gabbai applies a card's credit explicitly. */
+export async function applyCreditAction(congregantId: string) {
+  return run(async () => {
+    const g = await requireGabbai();
+    await withContext(g.ctx, async (tx) => {
+      const id = uuid.parse(congregantId);
+      await lockCard(tx, g.tenantId, id);
+      const created = await applyAvailableCredit(tx, g.tenantId, id, { createdBy: g.userId });
+      await audit(tx, g.tenantId, g.actor, "credit.apply", { type: "Congregant", id }, { allocations: created.length });
+    });
+    revalidatePath(`/congregants/${congregantId}`);
+  }, "הזכות הוחלה על הנדרים הפתוחים.");
 }
 
 /**
