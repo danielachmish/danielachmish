@@ -23,7 +23,9 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:backup": "bash scripts/backup.sh",
+    "db:restore-check": "bash scripts/restore-check.sh"
   },
   "dependencies": {
     "@hebcal/core": "^6.11.0",
