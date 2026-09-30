@@ -68,3 +68,9 @@ describe("configuration guards", () => {
     }
   });
 });
+
+import { parseDate } from "@/server/gabbai/import-export";
+describe("date parsing for imports", () => {
+  it.each(["2026-09-01", "1/9/2026", "01.09.2026"])("accepts %s", (s) => expect(parseDate(s)?.toISOString().slice(0, 10)).toBe("2026-09-01"));
+  it.each(["31/31/2026", "30/02/2026", "2026-13-01", "2026-02-30", "1/1/26", "abc"])("rejects %s", (s) => expect(parseDate(s)).toBeNull());
+});

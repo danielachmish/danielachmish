@@ -9,7 +9,9 @@ const NAV = [
   ["/payments", "תשלומים"],
   ["/tasks", "משימות"],
   ["/reminders", "תזכורות"],
+  ["/reports", "דוחות"],
   ["/settings", "הגדרות"],
+  ["/activity", "יומן"],
 ] as const;
 
 export default async function GabbaiLayout({ children }: { children: React.ReactNode }) {

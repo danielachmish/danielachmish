@@ -12,7 +12,10 @@ export default async function Payments() {
   }));
   return (
     <>
-      <h1 className="text-2xl font-bold">תשלומים</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">תשלומים</h1>
+        <Link href="/payments/reconcile" className="text-sm text-brand-700 hover:underline">התאמה מול דוח חברת הסליקה</Link>
+      </div>
       <Card title={`ממתינים לאישור (${pending.length})`}>
         {pending.length === 0 ? (
           <Empty>אין דיווחים שממתינים לאישור.</Empty>

@@ -1,20 +1,19 @@
 import Link from "next/link";
 import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
-import { cardSummary } from "@/server/ledger/balance";
+import { cardSummaries } from "@/server/ledger/aggregate";
 import { Alert, Badge, Card, Empty, LinkButton, METHOD_LABEL, Money, fmtDate } from "@/components/ui";
 import { TASK_LABEL } from "@/components/labels";
 
 export default async function Dashboard() {
   const g = await requireGabbai();
   const data = await withContext(g.ctx, async (tx) => {
-    const cards = await tx.congregant.findMany({ select: { id: true } });
+    const cards = [...(await cardSummaries(tx)).values()];
     let debt = 0;
     let credit = 0;
     let pending = 0;
     let debtors = 0;
-    for (const c of cards) {
-      const s = await cardSummary(tx, c.id);
+    for (const s of cards) {
       debt += s.debtAgorot;
       credit += s.creditAgorot;
       pending += s.pendingExternalAgorot;

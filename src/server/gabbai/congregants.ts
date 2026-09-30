@@ -3,7 +3,7 @@ import type { Actor } from "../db/context";
 import { normalizePhone } from "../util/phone";
 import { DomainError, notFound } from "../errors";
 import { audit } from "../audit";
-import { cardSummary } from "../ledger/balance";
+import { cardSummaries } from "../ledger/aggregate";
 
 export type CongregantInput = {
   firstName: string;
@@ -96,5 +96,7 @@ export async function listCongregants(tx: Tx, search?: string) {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     take: 500,
   });
-  return Promise.all(rows.map(async (c) => ({ ...c, summary: await cardSummary(tx, c.id) })));
+  const sums = await cardSummaries(tx);
+  const zero = { debtAgorot: 0, creditAgorot: 0, pendingExternalAgorot: 0, balanceAgorot: 0 };
+  return rows.map((c) => ({ ...c, summary: sums.get(c.id) ?? zero }));
 }

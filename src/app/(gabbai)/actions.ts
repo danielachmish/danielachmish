@@ -12,7 +12,17 @@ import { tenantSettingsSchema, type TenantSettings } from "@/server/settings";
 import { validateTemplate } from "@/server/reminders/template";
 import { bulkReminderPreview, cancelScheduledReminder, rescheduleAfterPolicyChange, sendBulkRemindersNow, sendReminderNow } from "@/server/reminders/service";
 import { createCongregant, grantFamilyAccess, recordConsent, updateCongregant, type CongregantInput } from "@/server/gabbai/congregants";
-import { commitCongregantImport, parseDate, previewCongregantImport, type ColumnMap } from "@/server/gabbai/import-export";
+import {
+  commitCongregantImport,
+  commitPledgeImport,
+  parseDate,
+  previewCongregantImport,
+  previewPledgeImport,
+  reconcileFromReport,
+  type ColumnMap,
+  type PledgeColumnMap,
+  type ReconColumnMap,
+} from "@/server/gabbai/import-export";
 import { issuePersonalLink, revokeLinks } from "@/server/portal/links";
 import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
 import { audit } from "@/server/audit";
@@ -385,4 +395,32 @@ export async function importCommitAction(csv: string, map: ColumnMap) {
     revalidatePath("/congregants");
     return r;
   }, "הייבוא הושלם.");
+}
+
+export async function pledgeImportPreviewAction(csv: string, map: PledgeColumnMap) {
+  return run(async () => {
+    const g = await requireGabbai();
+    if (csv.length > 2_000_000) throw new DomainError("too_large", "הקובץ גדול מדי (עד 2MB).");
+    return withContext(g.ctx, (tx) => previewPledgeImport(tx, csv, map));
+  });
+}
+
+export async function pledgeImportCommitAction(csv: string, map: PledgeColumnMap) {
+  return run(async () => {
+    const g = await requireGabbai();
+    if (csv.length > 2_000_000) throw new DomainError("too_large", "הקובץ גדול מדי (עד 2MB).");
+    const r = await withContext(g.ctx, (tx) => commitPledgeImport(tx, g.tenantId, g.actor, csv, map), { timeout: 120_000 });
+    revalidatePath("/congregants");
+    return r;
+  }, "הנדרים יובאו.");
+}
+
+export async function reconcileReportAction(csv: string, map: ReconColumnMap) {
+  return run(async () => {
+    const g = await requireGabbai();
+    if (csv.length > 5_000_000) throw new DomainError("too_large", "הקובץ גדול מדי (עד 5MB).");
+    const r = await withContext(g.ctx, (tx) => reconcileFromReport(tx, g.tenantId, g.actor, csv, map), { timeout: 120_000 });
+    revalidatePath("/tasks");
+    return r;
+  });
 }

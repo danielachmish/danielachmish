@@ -13,9 +13,12 @@ export default async function Congregants({ searchParams }: { searchParams: Prom
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">מתפללים</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <LinkButton href="/congregants/import" variant="secondary">
-            ייבוא מקובץ
+            ייבוא מתפללים
+          </LinkButton>
+          <LinkButton href="/pledges/import" variant="secondary">
+            ייבוא נדרים
           </LinkButton>
           <LinkButton href="/congregants/new">מתפלל חדש</LinkButton>
         </div>
