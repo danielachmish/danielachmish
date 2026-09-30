@@ -14,7 +14,6 @@
 | `npm run lint` | נקי |
 | `npm run typecheck` | נקי |
 | `npm run test:unit` + `test:integration` | 166/166 (עדכון אחרון) |
-| `npm run test:integration` | 77/77 (PostgreSQL 16 אמיתי, תפקיד ריצה מוגבל) |
 | `npm run test:e2e` | 28/28 (Chromium, שרת dev + worker אמיתי) |
 | `npm run build` | הצליח |
 | `scripts/restore-check.sh` | טביעת אצבע זהה |
@@ -32,10 +31,11 @@
 מסירה – ממתין להחלטות בעלים ולגישה לספקים.
 
 ## הפעולה הבאה
-1. להעביר את הקוד לריפו ייעודי `synagogue-saas` (יצירת ריפו נחסמה בסשן – ראו FINAL_REPORT).
-2. לאמת את חוזה PayPlus מול התיעוד (docs/PROVIDER_SETUP.md §PayPlus) ולהריץ מול sandbox.
+1. לאמת את חוזה PayPlus מול התיעוד (docs/PROVIDER_SETUP.md §PayPlus) ולהריץ מול sandbox – ממתין לתיעוד/חשבון מהבעלים.
+2. לברר עם אילו חברות סליקה בתי הכנסת עובדים ולכתוב להן מתאמים (קטלוג: src/server/integrations/catalog.ts).
+3. חשבון WhatsApp Business ואישור תבניות (תזכורת + קוד אימות).
 
 ## חסימות
 - אין גישה לתיעוד PayPlus מסביבת הפיתוח (חסימת רשת) ואין הרשאות sandbox.
 - אין הרשאות WhatsApp Business / החלטת מדיניות Meta.
-- יצירת ריפו GitHub חדש נחסמה (403) – הקוד בענף `ccr-7f24bd8c-svswzs` של `danielachmish/danielachmish`.
+- הקוד נמצא ב-`danielachmish/synagogue-saas` (ענף `main`); סביבת הפיתוח אינה יכולה לגשת ל-vercel.com או לאתר הפרוס.
