@@ -8,12 +8,15 @@ export const PASSWORD = "demo-password-123";
 export const state = (who: string) => `test-results/.auth/${who}.json`;
 
 /** Reads the latest fake OTP for a phone (development fake channel only). */
-export async function latestOtp(phoneE164: string): Promise<string> {
+export async function latestOtp(phoneE164: string, since: Date = new Date(0)): Promise<string> {
   const c = new pg.Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
   await c.connect();
   try {
     for (let i = 0; i < 20; i++) {
-      const r = await c.query(`SELECT data->>'code' code FROM "DevFakeRecord" WHERE kind='otp' AND data->>'phone'=$1 ORDER BY "createdAt" DESC LIMIT 1`, [phoneE164]);
+      const r = await c.query(
+        `SELECT data->>'code' code FROM "DevFakeRecord" WHERE kind='otp' AND data->>'phone'=$1 AND "createdAt" > $2 ORDER BY "createdAt" DESC LIMIT 1`,
+        [phoneE164, since],
+      );
       if (r.rows[0]) return r.rows[0].code;
       await new Promise((res) => setTimeout(res, 250));
     }

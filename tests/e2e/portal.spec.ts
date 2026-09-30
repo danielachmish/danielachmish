@@ -18,8 +18,9 @@ test("congregant: link → OTP → partial payment on 360px → worker records v
   await expect(p.getByRole("heading", { name: /אוהל יעקב/ })).toBeVisible();
   await expect(p.getByText("₪")).toHaveCount(0); // nothing financial before verification
   await expect(p).toHaveURL(/\/p$/); // token removed from the address bar
+  const t0 = new Date(Date.now() - 1000);
   await p.getByRole("button", { name: "שליחת קוד" }).click();
-  const code = await latestOtp("+972502222222");
+  const code = await latestOtp("+972502222222", t0);
   await p.getByLabel("קוד בן 6 ספרות").fill(code);
   await p.getByRole("button", { name: "אימות" }).click();
   await p.waitForURL(/\/me/);

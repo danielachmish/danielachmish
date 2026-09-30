@@ -230,7 +230,7 @@ describe("WhatsApp bot (fake provider)", () => {
     expect(r.tenantId).toBe(t2);
     await processMessagingEvent(t2, r.eventId);
     const msg = await asTenant(t2, (t) => t.outboundMessage.findFirstOrThrow());
-    expect((msg.body as { text: string }).text).toContain("0 ₪");
+    expect((msg.body as { text: string }).text).toContain("אין לך חוב פתוח בשני");
     expect(await asTenant(tenantId, (t) => t.outboundMessage.count())).toBe(0);
   });
 

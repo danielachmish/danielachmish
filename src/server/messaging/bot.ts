@@ -5,18 +5,17 @@ import { sha256 } from "../crypto";
 import { messagingProvider } from "../providers/registry";
 import { enqueue, QUEUES } from "../queue";
 import { normalizePhone } from "../util/phone";
-import { loadCard } from "../ledger/balance";
-import { formatILS } from "../money";
 import { issuePersonalLink } from "../portal/links";
 import { openInquiry, setOptOut } from "../portal/actions";
 import type { Tx } from "../db/client";
+import { cardsForPhone, debtStatementText } from "./statement";
 import { parseSettings, type TenantSettings } from "../settings";
 
 // Fixed menu – no AI. Inbound messages are routed by the synagogue's WhatsApp account, never by the sender alone.
 export function menuText(s: Pick<TenantSettings, "portalReportExternalPayment" | "portalInquiry">) {
   return [
     "תפריט:",
-    "1 – היתרה שלי",
+    "1 – החובות שלי (פירוט)",
     "2 – לתשלום",
     ...(s.portalReportExternalPayment ? ["3 – שילמתי בדרך אחרת"] : []),
     ...(s.portalInquiry ? ["4 – בירור חוב"] : []),
@@ -88,7 +87,8 @@ export async function processMessagingEvent(tenantId: string, eventId: string) {
     const opts = parseSettings(tenant.settings);
     for (const m of parsed.messages) {
       const phone = normalizePhone(m.from);
-      const cards = phone ? await tx.congregant.findMany({ where: { phone }, orderBy: { createdAt: "asc" } }) : [];
+      // WhatsApp itself proves the sender owns this number – no extra login needed for the statement.
+      const cards = phone ? await cardsForPhone(tx, phone) : [];
       const card = cards[0];
       if (!card) continue; // unknown number: no data disclosed, no card created
       const choice = m.text.trim();
@@ -96,13 +96,12 @@ export async function processMessagingEvent(tenantId: string, eventId: string) {
       if (/^(5|הסר|הפסק|stop)$/i.test(choice)) {
         await setOptOut(tx, tenantId, card.id, "whatsapp_stop", "congregant");
         text = "הבקשה התקבלה. לא יישלחו אליך עוד תזכורות. אפשר לחדש דרך הגבאי.";
-      } else if (choice === "1" || choice === "2") {
-        const s = (await loadCard(tx, card.id)).summary;
+      } else if (/^(1|חוב|חובות|יתרה|החוב שלי|החובות שלי)$/.test(choice)) {
         const link = await issuePersonalLink(tx, tenantId, card.id, "system:bot");
-        text =
-          choice === "1"
-            ? `היתרה הפתוחה ב${tenant.name}: ${formatILS(s.debtAgorot)}${s.creditAgorot ? `, זכות: ${formatILS(s.creditAgorot)}` : ""}. לפירוט: ${link.url}`
-            : `לתשלום מאובטח (אפשר גם סכום חלקי): ${link.url}`;
+        text = await debtStatementText(tx, tenant.name, cards, link.url);
+      } else if (choice === "2" || choice === "לתשלום") {
+        const link = await issuePersonalLink(tx, tenantId, card.id, "system:bot");
+        text = `לתשלום מאובטח (אפשר גם סכום חלקי): ${link.url}`;
       } else if (choice === "3" && opts.portalReportExternalPayment) {
         await tx.task.create({
           data: { tenantId, kind: "external_payment", congregantId: card.id, summary: "המתפלל דיווח בוואטסאפ ששילם בדרך אחרת", pausesReminders: true, details: { source: "whatsapp" } },

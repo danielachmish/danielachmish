@@ -1,29 +1,34 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { portalIdentity } from "@/server/portal/links";
+import { otherSynagogues, portalIdentity } from "@/server/portal/links";
 import { portalOverview } from "@/server/portal/actions";
 import { Alert, Badge, Card, METHOD_LABEL, Money, STATUS_LABEL, fmtDate } from "@/components/ui";
 import { PORTAL_COOKIE } from "@/server/portal/cookie";
-import { PayPanel, ReportPanel, InquiryPanel, OptOutButton } from "./panels";
+import { PayPanel, ReportPanel, InquiryPanel, OptOutButton, SwitchSynagogue } from "./panels";
 
 export default async function Me({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const p = await portalIdentity((await cookies()).get(PORTAL_COOKIE)?.value);
   if (!p)
     return (
       <main className="mx-auto max-w-md px-4 py-8">
-        <Alert tone="warn">כדי לצפות בפרטים יש לפתוח את הקישור האישי שקיבלתם ולאמת בקוד.</Alert>
+        <Alert tone="warn">
+          כדי לצפות בפרטים יש להיכנס עם מספר הטלפון –{" "}
+          <a href="/enter" className="underline">כניסת מתפללים</a> – או לפתוח את הקישור האישי שקיבלתם.
+        </Alert>
       </main>
     );
   const { c } = await searchParams;
   const cid = c && z.uuid().safeParse(c).success && p.congregantIds.includes(c) ? c : p.primaryCongregantId;
   const o = await portalOverview(p, cid);
   const open = o.pledges.filter((x) => x.outstanding > 0);
+  const others = await otherSynagogues(p);
   return (
     <main className="mx-auto max-w-md space-y-4 px-4 py-6">
       <header>
         <p className="text-sm text-slate-500">{o.synagogueName}</p>
         <h1 className="text-2xl font-bold">{o.name}</h1>
       </header>
+      {others.length > 0 && <SwitchSynagogue current={o.synagogueName} others={others} />}
       {o.cards.length > 1 && (
         <nav className="flex flex-wrap gap-2" aria-label="כרטיסים">
           {o.cards.map((x) => (

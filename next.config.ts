@@ -31,7 +31,7 @@ const config: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       // Personal / financial pages must never be stored by shared caches.
-      { source: "/(dashboard|congregants|pledges|payments|tasks|reminders|settings|admin|me|p|pay)(.*)", headers: noStore },
+      { source: "/(dashboard|congregants|pledges|payments|tasks|reminders|settings|admin|me|p|pay|enter)(.*)", headers: noStore },
       { source: "/api/:path*", headers: noStore },
     ];
   },

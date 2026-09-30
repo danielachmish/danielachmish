@@ -3,7 +3,7 @@ import { withContext, type DbContext } from "../db/context";
 import { randomDigits, randomToken, sha256 } from "../crypto";
 import { DomainError } from "../errors";
 import { identityProvider } from "../providers/registry";
-import { maskPhone } from "../util/phone";
+import { maskPhone, normalizePhone } from "../util/phone";
 import type { Tx } from "../db/client";
 import { tenantSettings } from "../settings";
 
@@ -62,7 +62,8 @@ export async function requestOtp(token: string) {
     const c = await tx.congregant.findUniqueOrThrow({ where: { id: l.congregant_id } });
     if (!c.phone) throw new DomainError("no_phone", "לכרטיס אין מספר טלפון מאומת. אפשר לפנות לגבאי.", 409);
     const now = Date.now();
-    const recent = await tx.otpChallenge.findMany({ where: { linkId: l.link_id, createdAt: { gt: new Date(now - 86400_000) } } });
+    // Limits are per phone (not per link), so issuing new links cannot be used to bypass them.
+    const recent = await tx.otpChallenge.findMany({ where: { phone: c.phone, createdAt: { gt: new Date(now - 86400_000) } } });
     if (recent.length >= OTP_MAX_PER_DAY || recent.filter((r) => r.createdAt.getTime() > now - 15 * 60_000).length >= OTP_MAX_PER_15_MIN)
       throw new DomainError("otp_rate_limited", "נשלחו יותר מדי קודים. נסו שוב מאוחר יותר.", 429);
     const code = randomDigits(6);
@@ -122,8 +123,10 @@ export async function portalIdentity(sessionToken: string | undefined): Promise<
     const card = await tx.congregant.findUnique({ where: { id: link.congregantId } });
     // Card phone changed since the code was sent → session no longer valid.
     if (!card || card.phone !== s.phone) return null;
-    const family = await tx.contactPermission.findMany({ where: { phone: s.phone, revokedAt: null, relation: "family" } });
-    const ids = [...new Set([link.congregantId, ...family.map((f) => f.congregantId)])];
+    // Cards this verified phone may see: the link's card and every card it holds a permission for
+    // (its own "self" permissions and explicit family permissions).
+    const perms = await tx.contactPermission.findMany({ where: { phone: s.phone, revokedAt: null } });
+    const ids = [...new Set([link.congregantId, ...perms.map((f) => f.congregantId)])];
     return { tenantId: s.tenant_id, congregantIds: ids, primaryCongregantId: link.congregantId, phone: s.phone, sessionId: s.session_id };
   });
 }
@@ -134,3 +137,53 @@ export const portalCtx = (p: PortalIdentity): DbContext & { tenantId: string } =
   congregantIds: p.congregantIds,
   actor: { type: "congregant", id: p.primaryCongregantId },
 });
+
+// ───────────── congregant login by phone number (no link needed) ─────────────
+
+type CardRow = { tenant_id: string; tenant_name: string; congregant_id: string };
+const LOGIN_LINK_TTL_DAYS = 1 / 96; // 15 minutes
+
+async function cardsByPhone(phone: string) {
+  return prisma.$queryRaw<CardRow[]>`SELECT * FROM find_cards_by_phone(${phone})`;
+}
+
+/**
+ * Step 1: the congregant types a phone number. If it is registered, a short-lived login link is created for
+ * the first card and a code is sent to that phone. The response is the same whether or not the number exists
+ * (the returned ticket is null for unknown numbers), so the page cannot be used to probe who is registered.
+ */
+export async function startPhoneLogin(phoneInput: string): Promise<{ ticket: string | null }> {
+  const phone = normalizePhone(phoneInput);
+  if (!phone) throw new DomainError("phone_invalid", "מספר הטלפון אינו תקין. לדוגמה: 050-1234567");
+  const cards = await cardsByPhone(phone);
+  const first = cards[0];
+  if (!first) return { ticket: null };
+  const { token } = await withContext({ kind: "system", tenantId: first.tenant_id }, (tx) =>
+    issuePersonalLink(tx, first.tenant_id, first.congregant_id, "system:phone-login", LOGIN_LINK_TTL_DAYS),
+  );
+  await requestOtp(token);
+  return { ticket: token };
+}
+
+/** After a verified code: the other synagogues where this phone is registered (names shown only now). */
+export async function otherSynagogues(p: PortalIdentity) {
+  const cards = await cardsByPhone(p.phone);
+  const seen = new Map<string, string>();
+  for (const c of cards) if (c.tenant_id !== p.tenantId && !seen.has(c.tenant_id)) seen.set(c.tenant_id, c.tenant_name);
+  return [...seen.entries()].map(([tenantId, name]) => ({ tenantId, name }));
+}
+
+/** Switch synagogue without a new code – the phone was just verified. Returns a new session token. */
+export async function switchSynagogue(p: PortalIdentity, tenantId: string) {
+  const target = (await cardsByPhone(p.phone)).find((c) => c.tenant_id === tenantId);
+  if (!target) throw new DomainError("not_found", "בית הכנסת לא נמצא.", 404);
+  return withContext({ kind: "system", tenantId }, async (tx) => {
+    const link = await issuePersonalLink(tx, tenantId, target.congregant_id, "system:phone-switch", LOGIN_LINK_TTL_DAYS);
+    const row = await tx.personalLink.findUniqueOrThrow({ where: { tokenHash: sha256(link.token) } });
+    const sessionToken = randomToken();
+    await tx.portalSession.create({
+      data: { tenantId, linkId: row.id, phone: p.phone, tokenHash: sha256(sessionToken), expiresAt: new Date(Date.now() + SESSION_TTL_HOURS * 3600_000) },
+    });
+    return { sessionToken, maxAgeSeconds: SESSION_TTL_HOURS * 3600 };
+  });
+}

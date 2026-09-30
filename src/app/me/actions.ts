@@ -5,7 +5,7 @@ import { z } from "zod";
 import { run } from "@/server/actions/result";
 import { DomainError } from "@/server/errors";
 import { parseShekelsToAgorot } from "@/server/money";
-import { portalCtx, portalIdentity } from "@/server/portal/links";
+import { portalCtx, portalIdentity, switchSynagogue } from "@/server/portal/links";
 import { portalInquiry, portalOptOut, portalReportPayment } from "@/server/portal/actions";
 import { createPaymentRequest } from "@/server/payments/requests";
 import { PORTAL_COOKIE } from "@/server/portal/cookie";
@@ -63,4 +63,18 @@ export async function optOutAction(congregantId: string) {
 
 export async function logoutAction() {
   (await cookies()).delete(PORTAL_COOKIE);
+}
+
+export async function switchSynagogueAction(tenantId: string) {
+  return run(async () => {
+    const p = await identity();
+    const r = await switchSynagogue(p, uuid.parse(tenantId));
+    (await cookies()).set(PORTAL_COOKIE, r.sessionToken, {
+      httpOnly: true,
+      secure: (process.env.APP_BASE_URL ?? "").startsWith("https://"),
+      sameSite: "lax",
+      path: "/",
+      maxAge: r.maxAgeSeconds,
+    });
+  });
 }

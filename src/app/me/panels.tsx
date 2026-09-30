@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { inquiryAction, optOutAction, payAction, reportPaidAction } from "./actions";
+import { inquiryAction, optOutAction, payAction, reportPaidAction, switchSynagogueAction } from "./actions";
 import { Alert, Button, Card, Field, Input, Money, Select, Textarea } from "@/components/ui";
 
 const NET = { ok: false as const, error: "אין חיבור לשרת. נסו שוב." };
@@ -154,6 +154,32 @@ export function OptOutButton({ congregantId }: { congregantId: string }) {
         הפסקת תזכורות
       </Button>
       {msg && <Alert>{msg}</Alert>}
+    </div>
+  );
+}
+
+export function SwitchSynagogue({ current, others }: { current: string; others: { tenantId: string; name: string }[] }) {
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+      <p className="mb-2">מוצג: <b>{current}</b>. המספר שלך רשום גם ב:</p>
+      <div className="flex flex-wrap gap-2">
+        {others.map((o) => (
+          <Button
+            key={o.tenantId}
+            variant="secondary"
+            className="min-h-9 text-sm"
+            onClick={async () => {
+              const r = await switchSynagogueAction(o.tenantId).catch(() => NET);
+              if (!r.ok) return setErr(r.error);
+              window.location.replace("/me");
+            }}
+          >
+            {o.name}
+          </Button>
+        ))}
+      </div>
+      {err && <Alert tone="error">{err}</Alert>}
     </div>
   );
 }
