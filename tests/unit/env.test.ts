@@ -68,14 +68,32 @@ describe("zero-configuration demo on Vercel", () => {
 });
 
 describe("Neon integration variable prefix", () => {
-  it("STORAGE_URL (Vercel default prefix) is accepted as DATABASE_URL", async () => {
-    process.env = { ...saved, VERCEL: "1", STORAGE_URL: "postgresql://o:p@pooled/d", STORAGE_URL_UNPOOLED: "postgresql://o:p@direct/d" } as NodeJS.ProcessEnv;
-    for (const k of ["DATABASE_URL", "DATABASE_URL_UNPOOLED", "APP_ENV", "APP_DB_PASSWORD", "MIGRATION_DATABASE_URL"]) delete process.env[k];
+  const load = async (vars: Record<string, string>) => {
+    process.env = { ...saved, VERCEL: "1", ...vars } as NodeJS.ProcessEnv;
+    for (const k of ["DATABASE_URL", "DATABASE_URL_UNPOOLED", "APP_ENV", "APP_DB_PASSWORD", "MIGRATION_DATABASE_URL", "POSTGRES_URL_NON_POOLING"])
+      if (!(k in vars)) delete process.env[k];
     const { vi } = await import("vitest");
     vi.resetModules();
-    const env = await import("@/server/env");
-    expect(process.env.DATABASE_URL).toBe("postgresql://o:p@pooled/d");
-    expect(env.migrationDatabaseUrl()).toBe("postgresql://o:p@direct/d");
+    return import("@/server/env");
+  };
+
+  it("real Vercel/Neon naming with STORAGE prefix (STORAGE_DATABASE_URL…)", async () => {
+    const env = await load({
+      STORAGE_DATABASE_URL: "postgresql://o:p@pooled.neon.tech/d?sslmode=require",
+      STORAGE_DATABASE_URL_UNPOOLED: "postgresql://o:p@direct.neon.tech/d?sslmode=require",
+      STORAGE_PGHOST: "pooled.neon.tech",
+      STORAGE_NEON_PROJECT_ID: "abc",
+    });
+    expect(process.env.DATABASE_URL).toBe("postgresql://o:p@pooled.neon.tech/d?sslmode=require");
+    expect(env.migrationDatabaseUrl()).toBe("postgresql://o:p@direct.neon.tech/d?sslmode=require");
     expect(new URL(env.runtimeDatabaseUrl()!).username).toBe("synagogue_app");
+  });
+
+  it("never creates the string 'undefined' and repairs it if present", async () => {
+    await load({ DATABASE_URL: "undefined", STORAGE_DATABASE_URL: "postgresql://o:p@h/d" });
+    expect(process.env.DATABASE_URL).toBe("postgresql://o:p@h/d");
+    await load({});
+    expect(process.env.DATABASE_URL).toBeUndefined();
+    expect(process.env.DATABASE_URL_UNPOOLED).toBeUndefined();
   });
 });

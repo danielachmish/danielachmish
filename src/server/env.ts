@@ -1,11 +1,33 @@
 import { createHmac } from "node:crypto";
 
-// Vercel's Neon integration names variables by a chosen prefix (DATABASE_URL, or STORAGE_URL by default).
-// Normalise to DATABASE_URL / DATABASE_URL_UNPOOLED before anything reads them.
-for (const prefix of ["STORAGE", "POSTGRES", "NEON"]) {
-  process.env.DATABASE_URL ??= process.env[`${prefix}_URL`] ?? (prefix === "POSTGRES" ? process.env.POSTGRES_PRISMA_URL : undefined);
-  process.env.DATABASE_URL_UNPOOLED ??= process.env[`${prefix}_URL_UNPOOLED`] ?? process.env[`${prefix}_URL_NON_POOLING`];
+// Vercel's Neon integration prefixes its variables with a name chosen at connect time
+// (DATABASE_URL, STORAGE_DATABASE_URL, …). Normalise to DATABASE_URL / DATABASE_URL_UNPOOLED.
+// Only ever assign real values: assigning undefined to process.env stores the string "undefined".
+function pickEnv(patterns: RegExp[]): string | undefined {
+  for (const re of patterns) {
+    const key = Object.keys(process.env)
+      .filter((k) => re.test(k))
+      .sort()
+      .find((k) => {
+        const v = process.env[k];
+        return !!v && v !== "undefined" && /^postgres(ql)?:\/\//.test(v);
+      });
+    if (key) return process.env[key];
+  }
+  return undefined;
 }
+function normaliseDatabaseEnv() {
+  for (const k of ["DATABASE_URL", "DATABASE_URL_UNPOOLED"]) if (process.env[k] === "undefined" || process.env[k] === "") delete process.env[k];
+  if (!process.env.DATABASE_URL) {
+    const v = pickEnv([/^[A-Z0-9_]*DATABASE_URL$/, /^[A-Z0-9_]*POSTGRES_PRISMA_URL$/, /^[A-Z0-9_]*POSTGRES_URL$/, /^[A-Z0-9_]*STORAGE_URL$/]);
+    if (v) process.env.DATABASE_URL = v;
+  }
+  if (!process.env.DATABASE_URL_UNPOOLED) {
+    const v = pickEnv([/^[A-Z0-9_]*DATABASE_URL_UNPOOLED$/, /^[A-Z0-9_]*POSTGRES_URL_NON_POOLING$/, /^[A-Z0-9_]*URL_UNPOOLED$/]);
+    if (v) process.env.DATABASE_URL_UNPOOLED = v;
+  }
+}
+normaliseDatabaseEnv();
 
 // Deployment environment. NODE_ENV only says how Next was built; APP_ENV says what the deployment is for:
 //   development / test – local work · demo – public demo with fake providers only · production – real money.
