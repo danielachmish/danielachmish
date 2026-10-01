@@ -11,7 +11,7 @@ export function LoginForm({ notice }: { notice?: string }) {
   const [busy, setBusy] = useState(false);
   return (
     <form
-      className="space-y-3"
+      className="space-y-4"
       onSubmit={async (e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
@@ -35,9 +35,11 @@ export function LoginForm({ notice }: { notice?: string }) {
     >
       <Field label="דוא״ל"><Input name="email" type="email" dir="ltr" autoComplete="username" required /></Field>
       <Field label="סיסמה"><Input name="password" type="password" dir="ltr" autoComplete="current-password" required /></Field>
-      <Button className="w-full" disabled={busy}>{busy ? "נכנס…" : "כניסה"}</Button>
+      <div className="flex justify-end">
+        <Link className="text-sm font-medium text-brand-700 hover:underline" href="/forgot-password">שכחתי סיסמה</Link>
+      </div>
+      <Button className="w-full" size="lg" disabled={busy}>{busy ? "נכנס…" : "כניסה"}</Button>
       {err && <Alert tone="error">{err}</Alert>}
-      <p className="text-center text-sm"><Link className="text-brand-700 hover:underline" href="/forgot-password">שכחתי סיסמה</Link></p>
     </form>
   );
 }

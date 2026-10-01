@@ -5,8 +5,8 @@ test.use({ storageState: state("gabbai1") });
 
 test("dashboard shows real totals and tasks", async ({ page }) => {
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "לוח בקרה" })).toBeVisible();
-  await expect(page.getByText("חוב פתוח")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /שלום/ })).toBeVisible();
+  await expect(page.getByText("חוב פתוח", { exact: true })).toBeVisible();
   await expect(page.getByText("בירור חוב")).toBeVisible();
 });
 

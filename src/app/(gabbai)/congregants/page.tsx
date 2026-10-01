@@ -1,55 +1,93 @@
 import Link from "next/link";
+import { ChevronLeft, FileUp, Search, UserPlus, Users } from "lucide-react";
 import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
 import { listCongregants } from "@/server/gabbai/congregants";
 import { displayPhone } from "@/server/util/phone";
-import { Badge, Empty, Input, LinkButton, Money } from "@/components/ui";
+import { Avatar, Badge, Empty, LinkButton, Money, PageHeader, cx } from "@/components/ui";
 
-export default async function Congregants({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+const FILTERS = [
+  ["all", "כולם"],
+  ["debt", "עם חוב"],
+  ["pending", "ממתין לאישור"],
+  ["credit", "עם זכות"],
+] as const;
+
+export default async function Congregants({ searchParams }: { searchParams: Promise<{ q?: string; f?: string }> }) {
   const g = await requireGabbai();
-  const { q } = await searchParams;
-  const rows = await withContext(g.ctx, (tx) => listCongregants(tx, q));
+  const { q, f = "all" } = await searchParams;
+  const all = await withContext(g.ctx, (tx) => listCongregants(tx, q));
+  const rows = all.filter((c) =>
+    f === "debt" ? c.summary.debtAgorot > 0 : f === "pending" ? c.summary.pendingExternalAgorot > 0 : f === "credit" ? c.summary.creditAgorot > 0 : true,
+  );
+  const qs = (nf: string) => `/congregants?${new URLSearchParams({ ...(q ? { q } : {}), ...(nf !== "all" ? { f: nf } : {}) })}`;
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">מתפללים</h1>
-        <div className="flex flex-wrap gap-2">
-          <LinkButton href="/congregants/import" variant="secondary">
-            ייבוא מתפללים
-          </LinkButton>
-          <LinkButton href="/pledges/import" variant="secondary">
-            ייבוא נדרים
-          </LinkButton>
-          <LinkButton href="/congregants/new">מתפלל חדש</LinkButton>
-        </div>
+      <PageHeader
+        title="מתפללים"
+        subtitle={<><span className="num">{all.length}</span> כרטיסים</>}
+        icon={Users}
+        actions={
+          <>
+            <LinkButton href="/congregants/import" variant="secondary" size="sm">
+              <FileUp className="size-4" aria-hidden /> ייבוא מתפללים
+            </LinkButton>
+            <LinkButton href="/pledges/import" variant="secondary" size="sm">
+              <FileUp className="size-4" aria-hidden /> ייבוא נדרים
+            </LinkButton>
+            <LinkButton href="/congregants/new" size="sm">
+              <UserPlus className="size-4" aria-hidden /> מתפלל חדש
+            </LinkButton>
+          </>
+        }
+      />
+      <div className="space-y-3">
+        <form role="search" className="relative">
+          <label className="sr-only" htmlFor="q">
+            חיפוש
+          </label>
+          <Search className="pointer-events-none absolute top-1/2 start-3.5 size-5 -translate-y-1/2 text-slate-400" aria-hidden />
+          <input
+            id="q"
+            name="q"
+            defaultValue={q}
+            placeholder="חיפוש לפי שם או טלפון"
+            type="search"
+            className="block min-h-12 w-full rounded-2xl border border-slate-200 bg-white ps-11 pe-24 text-base shadow-card placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100"
+          />
+          {f !== "all" && <input type="hidden" name="f" value={f} />}
+          <button className="absolute top-1/2 end-1.5 -translate-y-1/2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800">חיפוש</button>
+        </form>
+        <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="סינון">
+          {FILTERS.map(([k, label]) => (
+            <Link
+              key={k}
+              href={qs(k)}
+              aria-current={f === k ? "page" : undefined}
+              className={cx(
+                "shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
+                f === k ? "border-brand-700 bg-brand-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
       </div>
-      <form role="search" className="flex gap-2">
-        <label className="sr-only" htmlFor="q">
-          חיפוש
-        </label>
-        <Input id="q" name="q" defaultValue={q} placeholder="חיפוש לפי שם או טלפון" type="search" />
-        <button className="min-h-11 rounded-lg border border-slate-300 bg-white px-4">חיפוש</button>
-      </form>
       {rows.length === 0 ? (
-        <Empty>{q ? "לא נמצאו מתפללים מתאימים." : "עדיין אין מתפללים. אפשר להוסיף ידנית או לייבא מקובץ."}</Empty>
+        <Empty icon={Users}>{q || f !== "all" ? "לא נמצאו מתפללים מתאימים." : "עדיין אין מתפללים. אפשר להוסיף ידנית או לייבא מקובץ."}</Empty>
       ) : (
-        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-card">
           {rows.map((c) => (
             <li key={c.id}>
-              <Link href={`/congregants/${c.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50">
-                <div className="min-w-0">
+              <Link href={`/congregants/${c.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50">
+                <Avatar name={`${c.firstName} ${c.lastName}`} />
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">
-                    {c.lastName} {c.firstName}
+                    {c.firstName} {c.lastName}
                   </p>
-                  <p className="num text-right text-sm text-slate-500">{displayPhone(c.phone) || "—"}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  {c.summary.debtAgorot > 0 ? (
-                    <Money agorot={c.summary.debtAgorot} className="font-semibold text-red-700" />
-                  ) : (
-                    <span className="text-sm text-slate-400">אין חוב</span>
-                  )}
-                  <div className="flex gap-1">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="num text-sm text-slate-500">{displayPhone(c.phone) || "ללא טלפון"}</span>
                     {c.summary.creditAgorot > 0 && (
                       <Badge tone="green">
                         זכות <Money agorot={c.summary.creditAgorot} />
@@ -59,6 +97,17 @@ export default async function Congregants({ searchParams }: { searchParams: Prom
                     {c.messagingOptOut && <Badge>הודעות הופסקו</Badge>}
                   </div>
                 </div>
+                <div className="text-end">
+                  {c.summary.debtAgorot > 0 ? (
+                    <>
+                      <Money agorot={c.summary.debtAgorot} className="block font-semibold text-red-700" />
+                      <span className="text-xs text-slate-400">חוב</span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-emerald-700">אין חוב</span>
+                  )}
+                </div>
+                <ChevronLeft className="size-5 shrink-0 text-slate-300" aria-hidden />
               </Link>
             </li>
           ))}

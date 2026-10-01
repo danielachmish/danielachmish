@@ -74,6 +74,7 @@ test("send from my WhatsApp: opens wa.me with the ready text in a new tab", asyn
   // Uses the synagogue's own reminder wording (set by an earlier test) and a personal link.
   expect(decodeURIComponent(req.url())).toMatch(/אברהם.*₪.*\/p#[A-Za-z0-9_-]{20,}/s);
   await page.goto("/reminders");
-  await expect(page.getByText(/שליחה מהוואטסאפ שלי \(\d+ בעלי חוב\)/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "שליחה מהוואטסאפ שלי" })).toBeVisible();
+  await expect(page.getByText(/^\d+ בעלי חוב$/)).toBeVisible();
   await expect(page.locator("li", { hasText: "אברהם דוגמה" }).getByText("נשלחה ב-24 שעות")).toBeVisible();
 });

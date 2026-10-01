@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/server/auth/session";
 import { rolesFor } from "@/server/auth/roles";
-import { LinkButton } from "@/components/ui";
+import Link from "next/link";
+import { ChevronLeft, LayoutDashboard, ShieldCheck, Wallet } from "lucide-react";
+import { AuthShell } from "@/components/brand";
 import { SignOutButton } from "@/components/sign-out";
 
 // One entrance for everyone: after sign-in each user lands in his area. A user with several roles
@@ -14,21 +16,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
   if (roles.length === 0) redirect("/login?e=no_membership");
   if (roles.length === 1 && !choose) redirect(roles[0]!.href);
   return (
-    <main className="mx-auto max-w-sm space-y-4 px-4 py-10">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">שלום {user.name}</h1>
-        <SignOutButton />
-      </div>
-      <p className="text-sm text-slate-600">לאן להיכנס?</p>
+    <AuthShell title={`שלום ${user.name}`} subtitle="לאן להיכנס?" footer={<SignOutButton />}>
       <ul className="space-y-2">
-        {roles.map((r) => (
-          <li key={r.href}>
-            <LinkButton href={r.href} variant={r.kind === "congregant" ? "secondary" : "primary"} className="w-full justify-center">
-              {r.label}
-            </LinkButton>
-          </li>
-        ))}
+        {roles.map((r) => {
+          const Icon = r.kind === "admin" ? ShieldCheck : r.kind === "gabbai" ? LayoutDashboard : Wallet;
+          return (
+            <li key={r.href}>
+              <Link href={r.href} className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 font-medium transition hover:border-brand-300 hover:bg-brand-50">
+                <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-700">
+                  <Icon className="size-5" aria-hidden />
+                </span>
+                <span className="flex-1">{r.label}</span>
+                <ChevronLeft className="size-5 text-slate-400" aria-hidden />
+              </Link>
+            </li>
+          );
+        })}
       </ul>
-    </main>
+    </AuthShell>
   );
 }

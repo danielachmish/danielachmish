@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { acceptForSignedInAction, acceptNewAccountAction, inviteLandingAction } from "./actions";
 import { authClient } from "@/server/auth/client";
 import { Alert, Button, Field, Input } from "@/components/ui";
+import { AuthShell } from "@/components/brand";
 
 type Info = { synagogueName: string; firstName: string; suggestedEmail: string; signedInAs: string | null };
 const NET = { ok: false as const, error: "אין חיבור לשרת. נסו שוב." };
@@ -151,10 +152,5 @@ export default function InviteLanding() {
 }
 
 function Shell({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-sm space-y-4 px-4 py-10">
-      <h1 className="text-2xl font-bold">{title ?? "הזמנה לאפליקציה"}</h1>
-      {children}
-    </main>
-  );
+  return <AuthShell title={title ?? "הזמנה לאפליקציה"}>{children}</AuthShell>;
 }

@@ -1,12 +1,15 @@
+import { FileUp } from "lucide-react";
+import { PageHeader } from "@/components/ui";
 import { ImportWizard } from "@/components/gabbai/import-wizard";
 
 export default function ImportPage() {
   return (
     <>
-      <h1 className="text-2xl font-bold">ייבוא מתפללים מקובץ CSV</h1>
-      <p className="text-sm text-slate-600">
-        בוחרים קובץ, ממפים עמודות, בודקים תצוגה מקדימה ורק אז מייבאים. שורות לא נמזגות לפי שם; מזהה חיצוני מונע ייבוא כפול. יתרת פתיחה נרשמת כתנועה.
-      </p>
+      <PageHeader
+        title="ייבוא מתפללים מקובץ CSV"
+        icon={FileUp}
+        subtitle="בוחרים קובץ, ממפים עמודות, בודקים תצוגה מקדימה ורק אז מייבאים. שורות לא נמזגות לפי שם; מזהה חיצוני מונע ייבוא כפול. יתרת פתיחה נרשמת כתנועה."
+      />
       <ImportWizard />
     </>
   );

@@ -34,10 +34,10 @@ export function SubscriptionControls({ tenantId, status }: { tenantId: string; s
   const { act, note } = useAct();
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select className="w-44" defaultValue="" aria-label="שינוי מצב מנוי" onChange={(e) => e.target.value && act(() => subscriptionStatusAction(tenantId, e.target.value as "active"))}>
+      <div className="w-48"><Select defaultValue="" aria-label="שינוי מצב מנוי" onChange={(e) => e.target.value && act(() => subscriptionStatusAction(tenantId, e.target.value as "active"))}>
         <option value="">שינוי מצב מנוי…</option>
         {["active", "past_due", "grace", "suspended", "cancelled"].filter((s) => s !== status).map((s) => <option key={s} value={s}>{s}</option>)}
-      </Select>
+      </Select></div>
       {note}
     </div>
   );

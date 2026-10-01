@@ -1,7 +1,8 @@
 import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
 import { prisma } from "@/server/db/client";
-import { Card, Empty, fmtDateTime } from "@/components/ui";
+import { History } from "lucide-react";
+import { Avatar, Card, Empty, PageHeader, fmtDateTime } from "@/components/ui";
 
 const ACTION: Record<string, string> = {
   "pledge.create": "נרשם נדר",
@@ -53,20 +54,25 @@ export default async function Activity() {
   const nameOf = new Map(users.map((u) => [u.id, u.name]));
   return (
     <>
-      <h1 className="text-2xl font-bold">יומן פעולות</h1>
+      <PageHeader title="יומן פעולות" icon={History} subtitle="מי עשה מה ומתי. היומן אינו ניתן לעריכה או למחיקה." />
       <Card>
-        {rows.length === 0 ? <Empty>אין פעולות עדיין.</Empty> : (
-          <ul className="divide-y divide-slate-100 text-sm">
-            {rows.map((r) => (
-              <li key={r.id} className="flex flex-wrap gap-x-3 py-2">
-                <span className="text-slate-500">{fmtDateTime(r.createdAt)}</span>
-                <span className="font-medium">{ACTION[r.action] ?? r.action}</span>
-                <span className="text-slate-600">{WHO[r.actorType] ?? r.actorType}{r.actorId && nameOf.get(r.actorId) ? ` – ${nameOf.get(r.actorId)}` : ""}</span>
-              </li>
-            ))}
-          </ul>
+        {rows.length === 0 ? <Empty icon={History}>אין פעולות עדיין.</Empty> : (
+          <ol className="relative space-y-1 text-sm">
+            {rows.map((r) => {
+              const who = `${WHO[r.actorType] ?? r.actorType}${r.actorId && nameOf.get(r.actorId) ? ` – ${nameOf.get(r.actorId)}` : ""}`;
+              return (
+                <li key={r.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-50">
+                  <Avatar name={WHO[r.actorType] ?? r.actorType} size="sm" tone={["gabbai", "congregant", "system", "provider", "platform_admin"].indexOf(r.actorType)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{ACTION[r.action] ?? r.action}</span>
+                    <span className="block text-xs text-slate-500">{who}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-slate-400">{fmtDateTime(r.createdAt)}</span>
+                </li>
+              );
+            })}
+          </ol>
         )}
-        <p className="mt-2 text-xs text-slate-500">היומן אינו ניתן לעריכה או למחיקה.</p>
       </Card>
     </>
   );

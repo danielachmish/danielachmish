@@ -2,12 +2,12 @@
 import { useState } from "react";
 import { authClient } from "@/server/auth/client";
 import { Alert, Button, Field, Input } from "@/components/ui";
+import { AuthShell } from "@/components/brand";
 
 export default function ResetPassword() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   return (
-    <main className="mx-auto max-w-sm space-y-4 px-4 py-10">
-      <h1 className="text-2xl font-bold">בחירת סיסמה חדשה</h1>
+    <AuthShell title="בחירת סיסמה חדשה">
       <form
         className="space-y-3"
         onSubmit={async (e) => {
@@ -19,9 +19,9 @@ export default function ResetPassword() {
         }}
       >
         <Field label="סיסמה חדשה" hint="לפחות 10 תווים"><Input name="password" type="password" dir="ltr" minLength={10} autoComplete="new-password" required /></Field>
-        <Button className="w-full">שמירה</Button>
+        <Button className="w-full" size="lg">שמירה</Button>
       </form>
       {msg && <Alert tone={msg.ok ? "success" : "error"}>{msg.text} {msg.ok && <a className="underline" href="/login">לכניסה</a>}</Alert>}
-    </main>
+    </AuthShell>
   );
 }

@@ -2,12 +2,12 @@
 import { useState } from "react";
 import { authClient } from "@/server/auth/client";
 import { Alert, Button, Field, Input } from "@/components/ui";
+import { AuthShell } from "@/components/brand";
 
 export default function ForgotPassword() {
   const [done, setDone] = useState(false);
   return (
-    <main className="mx-auto max-w-sm space-y-4 px-4 py-10">
-      <h1 className="text-2xl font-bold">שחזור גישה</h1>
+    <AuthShell title="שחזור גישה" subtitle="נשלח קישור לבחירת סיסמה חדשה לכתובת הדוא״ל שלכם." footer={<a className="font-medium text-brand-700 hover:underline" href="/login">חזרה לכניסה</a>}>
       {done ? (
         <Alert tone="success">אם הכתובת רשומה, נשלח אליה קישור לאיפוס הסיסמה.</Alert>
       ) : (
@@ -21,9 +21,9 @@ export default function ForgotPassword() {
           }}
         >
           <Field label="דוא״ל"><Input name="email" type="email" dir="ltr" required /></Field>
-          <Button className="w-full">שליחת קישור לאיפוס</Button>
+          <Button className="w-full" size="lg">שליחת קישור לאיפוס</Button>
         </form>
       )}
-    </main>
+    </AuthShell>
   );
 }

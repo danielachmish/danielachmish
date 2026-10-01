@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { inquiryAction, logoutAction, optOutAction, payAction, reportPaidAction, switchSynagogueAction } from "./actions";
 import { authClient } from "@/server/auth/client";
+import { HelpCircle, Lock, ReceiptText } from "lucide-react";
 import { Alert, Button, Card, Field, Input, Money, Select, Textarea } from "@/components/ui";
 
 const NET = { ok: false as const, error: "אין חיבור לשרת. נסו שוב." };
@@ -33,23 +34,28 @@ export function PayPanel({
   const [key] = useState(() => crypto.randomUUID().replace(/-/g, ""));
   const selectedTotal = pledges.filter((p) => selected.includes(p.id)).reduce((s, p) => s + p.outstanding, 0);
   return (
-    <Card title="תשלום מאובטח">
+    <Card title="תשלום מאובטח" icon={Lock}>
       <div className="space-y-3">
         {modes.length > 1 && (
-        <div className={`grid gap-1 rounded-lg bg-slate-100 p-1 text-sm ${modes.length === 3 ? "grid-cols-3" : "grid-cols-2"}`} role="radiogroup" aria-label="אופן תשלום">
+        <div className={`grid gap-1 rounded-xl bg-slate-100 p-1 text-sm ${modes.length === 3 ? "grid-cols-3" : "grid-cols-2"}`} role="radiogroup" aria-label="אופן תשלום">
           {modes.map((m) => (
-            <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`min-h-10 rounded-md ${mode === m ? "bg-white shadow" : ""}`}>
+            <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`min-h-10 rounded-lg font-medium transition ${mode === m ? "bg-white text-brand-800 shadow-sm" : "text-slate-600"}`}>
               {m === "full" ? "הכול" : m === "partial" ? "סכום חלקי" : "בחירת נדרים"}
             </button>
           ))}
         </div>
         )}
-        {mode === "full" && <p>לתשלום: <Money agorot={debtAgorot} className="font-bold" /></p>}
+        {mode === "full" && (
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+            <span className="text-slate-600">לתשלום</span>
+            <Money agorot={debtAgorot} className="text-xl font-bold" />
+          </div>
+        )}
         {mode === "partial" && <Field label="סכום לתשלום (₪)" hint={minPartialAgorot > 0 ? `מינימום ${minPartialAgorot / 100} ₪` : undefined}><Input inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>}
         {mode === "select" && (
           <fieldset className="space-y-2">
             {pledges.map((p) => (
-              <label key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-2">
+              <label key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 has-[:checked]:border-brand-300 has-[:checked]:bg-brand-50">
                 <span className="flex items-center gap-2">
                   <input type="checkbox" className="size-5" checked={selected.includes(p.id)} onChange={(e) => setSelected((s) => (e.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
                   {p.label}
@@ -62,6 +68,7 @@ export function PayPanel({
         )}
         <Button
           className="w-full"
+          size="lg"
           disabled={busy || (mode === "partial" && !amount) || (mode === "select" && selected.length === 0)}
           onClick={async () => {
             setBusy(true);
@@ -76,7 +83,10 @@ export function PayPanel({
         >
           {busy ? "מעביר לדף התשלום…" : "מעבר לתשלום"}
         </Button>
-        <p className="text-xs text-slate-500">פרטי הכרטיס מוזנים בדף המאובטח של חברת הסליקה בלבד. החוב מתעדכן רק לאחר אישור החיוב מחברת הסליקה.</p>
+        <p className="flex items-start gap-1.5 text-xs leading-relaxed text-slate-500">
+          <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          פרטי הכרטיס מוזנים בדף המאובטח של חברת הסליקה בלבד. החוב מתעדכן רק לאחר אישור החיוב מחברת הסליקה.
+        </p>
         {err && <Alert tone="error">{err}</Alert>}
       </div>
     </Card>
@@ -88,9 +98,15 @@ export function ReportPanel({ congregantId }: { congregantId: string }) {
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [opId, setOpId] = useState(() => crypto.randomUUID());
-  if (!open) return <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>שילמתי בדרך אחרת</Button>;
+  if (!open)
+    return (
+      <Button variant="secondary" className="w-full justify-start" onClick={() => setOpen(true)}>
+        <ReceiptText className="size-5 text-brand-600" aria-hidden />
+        שילמתי בדרך אחרת
+      </Button>
+    );
   return (
-    <Card title="דיווח על תשלום במזומן / העברה / צ׳ק">
+    <Card title="דיווח על תשלום במזומן / העברה / צ׳ק" icon={ReceiptText}>
       <form
         className="space-y-3"
         onSubmit={async (e) => {
@@ -118,9 +134,15 @@ export function ReportPanel({ congregantId }: { congregantId: string }) {
 export function InquiryPanel({ congregantId }: { congregantId: string }) {
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  if (!open) return <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>בירור על החוב</Button>;
+  if (!open)
+    return (
+      <Button variant="secondary" className="w-full justify-start" onClick={() => setOpen(true)}>
+        <HelpCircle className="size-5 text-brand-600" aria-hidden />
+        בירור על החוב
+      </Button>
+    );
   return (
-    <Card title="בירור חוב">
+    <Card title="בירור חוב" icon={HelpCircle}>
       <form
         className="space-y-3"
         onSubmit={async (e) => {
@@ -162,7 +184,7 @@ export function OptOutButton({ congregantId }: { congregantId: string }) {
 export function SwitchSynagogue({ current, others }: { current: string; others: { tenantId: string; name: string }[] }) {
   const [err, setErr] = useState<string | null>(null);
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-sm shadow-card">
       <p className="mb-2">מוצג: <b>{current}</b>. יש לך כרטיס גם ב:</p>
       <div className="flex flex-wrap gap-2">
         {others.map((o) => (

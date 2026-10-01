@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { landingAction, requestOtpAction, verifyOtpAction } from "./actions";
 import { Alert, Button, Field, Input } from "@/components/ui";
+import { AuthShell } from "@/components/brand";
 
 // Personal link landing. The token is read from location.hash, so it never reaches server logs or other sites.
 export default function PortalLanding() {
@@ -70,7 +71,7 @@ export default function PortalLanding() {
           }}
         >
           <Field label="קוד בן 6 ספרות">
-            <Input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} dir="ltr" required autoFocus />
+            <Input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} dir="ltr" required autoFocus className="text-center text-2xl tracking-[0.5em]" />
           </Field>
           <Button className="w-full" disabled={busy}>אימות</Button>
           <Button type="button" variant="ghost" className="w-full" onClick={() => setStage("start")}>לא קיבלתי קוד</Button>
@@ -82,10 +83,5 @@ export default function PortalLanding() {
 }
 
 function Shell({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-md space-y-4 px-4 py-8">
-      <h1 className="text-2xl font-bold">{title ?? "העמוד האישי"}</h1>
-      {children}
-    </main>
-  );
+  return <AuthShell title={title ?? "העמוד האישי"}>{children}</AuthShell>;
 }

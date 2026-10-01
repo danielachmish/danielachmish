@@ -1,3 +1,5 @@
+import { NotebookPen } from "lucide-react";
+import { PageHeader } from "@/components/ui";
 import { requireGabbai } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
 import { BatchEntryClient as BatchEntry } from "@/components/gabbai/batch-client";
@@ -14,10 +16,11 @@ export default async function BatchPage() {
   const options = base.map((p) => ({ id: p.id, name: counts.get(p.name)! > 1 ? `${p.name} (${p.phone ? p.phone.slice(-4) : p.id.slice(-4)})` : p.name }));
   return (
     <>
-      <h1 className="text-2xl font-bold">קליטת נדרים מרוכזת</h1>
-      <p className="text-sm text-slate-600">
-        חובה: מתפלל, סכום ותאריך. אנטר עובר לשדה הבא. הטיוטה נשמרת במכשיר עד השמירה – היא עדיין לא רשומה במערכת.
-      </p>
+      <PageHeader
+        title="קליטת נדרים מרוכזת"
+        icon={NotebookPen}
+        subtitle="חובה: מתפלל, סכום ותאריך. אנטר עובר לשדה הבא. הטיוטה נשמרת במכשיר עד השמירה – היא עדיין לא רשומה במערכת."
+      />
       <BatchEntry people={options} draftKey={`batch-draft:${g.tenantId}`} />
     </>
   );

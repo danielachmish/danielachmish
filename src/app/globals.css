@@ -1,16 +1,67 @@
 @import "tailwindcss";
 
+/* Design tokens. Brand = deep "tallit" blue, gold = warm accent, neutrals = warm parchment greys. */
 @theme {
-  --color-brand-50: #eef6ff;
-  --color-brand-100: #d9eaff;
-  --color-brand-600: #1d5fbf;
-  --color-brand-700: #184e9c;
-  --color-brand-900: #0f2e5c;
-  --font-sans: system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+  --font-sans: var(--font-rubik), system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+
+  --color-brand-50: #eef3fc;
+  --color-brand-100: #dbe5f8;
+  --color-brand-200: #bccdf1;
+  --color-brand-300: #8eaae5;
+  --color-brand-400: #5d82d6;
+  --color-brand-500: #3a62c4;
+  --color-brand-600: #2b4ea8;
+  --color-brand-700: #243f88;
+  --color-brand-800: #1f336d;
+  --color-brand-900: #1b2b58;
+  --color-brand-950: #111a37;
+
+  --color-gold-50: #fdf9ee;
+  --color-gold-100: #f9efd2;
+  --color-gold-200: #f1dca1;
+  --color-gold-300: #e7c46c;
+  --color-gold-400: #dbad45;
+  --color-gold-500: #c7922c;
+  --color-gold-600: #a97423;
+  --color-gold-700: #875720;
+
+  /* Warm neutrals replace Tailwind's cool slate everywhere. */
+  --color-slate-50: #faf9f6;
+  --color-slate-100: #f3f1ec;
+  --color-slate-200: #e6e2d9;
+  --color-slate-300: #d3cdc0;
+  --color-slate-400: #a8a194;
+  --color-slate-500: #7b7469;
+  --color-slate-600: #5e584f;
+  --color-slate-700: #46413b;
+  --color-slate-800: #2e2b27;
+  --color-slate-900: #1f1d1a;
+
+  --shadow-card: 0 1px 2px rgb(31 29 26 / 0.04), 0 4px 16px -4px rgb(31 29 26 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(31 29 26 / 0.05), 0 12px 32px -8px rgb(31 29 26 / 0.14);
 }
 
 html { -webkit-text-size-adjust: 100%; }
-body { @apply bg-slate-50 text-slate-900 antialiased; }
+body {
+  @apply bg-[#f6f4ef] text-slate-900 antialiased;
+  font-feature-settings: "kern";
+}
+h1, h2, h3 { @apply tracking-tight; }
 /* Numbers and amounts keep LTR order inside RTL text. */
 .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
-:focus-visible { outline: 3px solid var(--color-brand-600); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--color-brand-400); outline-offset: 2px; border-radius: 6px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--color-brand-600); }
+::selection { background: var(--color-gold-200); }
+
+/* Collapsible sections (<details>) used for secondary forms. */
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] .chevron { transform: rotate(180deg); }
+
+/* Table look shared by reports / admin lists. */
+.table-clean { @apply w-full text-sm; }
+.table-clean thead th { @apply bg-slate-50 px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-slate-500; }
+.table-clean tbody td { @apply border-t border-slate-100 px-3 py-2.5; }
+.table-clean tbody tr:hover td { @apply bg-slate-50/60; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

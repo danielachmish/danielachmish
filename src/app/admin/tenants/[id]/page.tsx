@@ -4,7 +4,9 @@ import { requireAdmin } from "@/server/auth/session";
 import { withContext } from "@/server/db/context";
 import { cardSummary } from "@/server/ledger/balance";
 import { audit } from "@/server/audit";
-import { Alert, Card, LinkButton, Money } from "@/components/ui";
+import Link from "next/link";
+import { ArrowRight, Building2, Eye, MessageCircle, UserCog, Wallet } from "lucide-react";
+import { Alert, Card, Money, PageHeader } from "@/components/ui";
 import { ReplaceGabbaiForm } from "../../forms";
 import { IntegrationPanel } from "@/components/integration-panel";
 import { integrationStatus } from "@/server/integrations/connect";
@@ -29,20 +31,28 @@ export default async function AdminTenant({ params }: { params: Promise<{ id: st
     return { grant, rows: await Promise.all(cs.map(async (c) => ({ ...c, s: await cardSummary(tx, c.id) }))) };
   });
   return (
-    <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
-      <LinkButton href="/admin" variant="secondary">חזרה</LinkButton>
-      <h1 className="text-2xl font-bold">{tenant.name}</h1>
-      <Card title="חיבור סליקה (החשבון של בית הכנסת)">
+    <>
+      <PageHeader
+        title={tenant.name}
+        icon={Building2}
+        subtitle={tenant.city ?? undefined}
+        back={
+          <Link href="/admin" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-700">
+            <ArrowRight className="size-4" aria-hidden /> חזרה לסקירה
+          </Link>
+        }
+      />
+      <Card title="חיבור סליקה (החשבון של בית הכנסת)" icon={Wallet}>
         <p className="mb-3 text-sm text-slate-600">הכסף של המתפללים נכנס ישירות לחשבון של בית הכנסת. אפשר לחבר כאן בשמו; הגבאי רואה את החיבור וכל שינוי מתועד.</p>
         <IntegrationPanel kind="payment" providers={providersFor("payment", modeFor("payment"))} current={integrations.payment} target={{ type: "admin", tenantId: id }} />
       </Card>
-      <Card title="חיבור וואטסאפ של בית הכנסת">
+      <Card title="חיבור וואטסאפ של בית הכנסת" icon={MessageCircle}>
         <IntegrationPanel kind="messaging" providers={providersFor("messaging", modeFor("messaging"))} current={integrations.messaging} target={{ type: "admin", tenantId: id }} embeddedSignup={embeddedSignupConfig()} />
       </Card>
-      <Card title="החלפת גבאי ראשי">
+      <Card title="החלפת גבאי ראשי" icon={UserCog}>
         <ReplaceGabbaiForm tenantId={id} />
       </Card>
-      <Card title="נתוני בית הכנסת (בהרשאת גבאי בלבד)">
+      <Card title="נתוני בית הכנסת (בהרשאת גבאי בלבד)" icon={Eye}>
         {!view.grant ? (
           <Alert>אין הרשאת תמיכה פעילה. הגבאי יכול לתת גישה זמנית ממסך ההגדרות.</Alert>
         ) : !view.rows ? (
@@ -56,6 +66,6 @@ export default async function AdminTenant({ params }: { params: Promise<{ id: st
           </>
         )}
       </Card>
-    </main>
+    </>
   );
 }
