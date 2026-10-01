@@ -41,7 +41,15 @@ async function main() {
   const env = { ...process.env, MIGRATION_DATABASE_URL: owner };
   execSync("npx prisma migrate deploy", { stdio: "inherit", env });
   if (process.env.APP_ENV === "demo" && process.env.DEMO_SEED !== "false") execSync("npx tsx prisma/seed.ts", { stdio: "inherit", env });
-  if (process.env.APP_ENV === "production") execSync("npx tsx scripts/bootstrap-admin.ts", { stdio: "inherit", env });
+  if (process.env.APP_ENV === "production") {
+    // A production database must not contain the demo's dummy accounts (their passwords are public).
+    const chk = new pg.Client({ connectionString: owner, connectionTimeoutMillis: 20_000 });
+    await chk.connect();
+    const demo = (await chk.query(`SELECT count(*)::int n FROM "user" WHERE email LIKE '%@example.test'`)).rows[0].n as number;
+    await chk.end();
+    if (demo > 0) throw new Error("This production database contains demo accounts (@example.test). Connect a fresh database, then redeploy.");
+    execSync("npx tsx scripts/bootstrap-admin.ts", { stdio: "inherit", env });
+  }
   execSync("npx next build", { stdio: "inherit", env });
 }
 

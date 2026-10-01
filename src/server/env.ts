@@ -81,6 +81,11 @@ export function migrationDatabaseUrl(): string | undefined {
  */
 function zeroConfigDemo() {
   if (!process.env.VERCEL || process.env.APP_ENV) return;
+  // A project configured for real use must never silently become a demo (the demo seeds dummy users with
+  // published passwords). Production-only variables without APP_ENV mean APP_ENV was forgotten.
+  const prodHints = ["APP_SECRET", "ADMIN_EMAIL"].filter((k) => process.env[k]);
+  if (prodHints.length)
+    throw new Error(`APP_ENV is not set but ${prodHints.join(", ")} is – set APP_ENV=production (or APP_ENV=demo) for this environment and redeploy.`);
   const seed = process.env.DATABASE_URL;
   process.env.APP_ENV = "demo";
   process.env.PROVIDER_MODE ??= "fake";

@@ -197,3 +197,18 @@ describe("production from a single APP_SECRET", () => {
     }
   });
 });
+
+describe("a real project never silently becomes the demo", () => {
+  it("refuses zero-config demo mode when production variables are present without APP_ENV", async () => {
+    const saved = { ...process.env };
+    try {
+      process.env = { ...saved, VERCEL: "1", APP_SECRET: "y".repeat(40), DATABASE_URL: "postgresql://o:p@h/db" } as NodeJS.ProcessEnv;
+      delete process.env.APP_ENV;
+      vi.resetModules();
+      await expect(import("@/server/env")).rejects.toThrow(/APP_ENV is not set but APP_SECRET/);
+    } finally {
+      process.env = saved;
+      vi.resetModules();
+    }
+  });
+});
