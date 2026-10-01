@@ -1,7 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { manualPaymentAction, onboardAction, replaceGabbaiAction, resolveCaseAction, subscriptionStatusAction } from "./actions";
+import { manualPaymentAction, onboardAction, replaceGabbaiAction, resolveCaseAction, saveLoginSettingsAction, subscriptionStatusAction } from "./actions";
+import type { CodeChannel, LoginSettings } from "@/server/auth/login-settings";
 import type { ActionResult } from "@/server/actions/result";
 import { Alert, Button, Field, Input, Select } from "@/components/ui";
 
@@ -68,4 +69,40 @@ export function ReplaceGabbaiForm({ tenantId }: { tenantId: string }) {
 export function ResolveCase({ id }: { id: string }) {
   const { act } = useAct();
   return <Button variant="ghost" className="min-h-8 text-sm" onClick={() => act(() => resolveCaseAction(id))}>סגירה</Button>;
+}
+
+export function LoginSettingsForm({ initial, channels, envChannel }: { initial: LoginSettings; channels: { value: CodeChannel; label: string; ready: boolean; note?: string }[]; envChannel: string }) {
+  const { act, note } = useAct();
+  const [phoneLogin, setPhoneLogin] = useState(initial.phoneLogin);
+  const [channel, setChannel] = useState<string>(initial.codeChannel ?? "");
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        act(() => saveLoginSettingsAction({ phoneLogin, codeChannel: (channel || null) as CodeChannel | null }));
+      }}
+    >
+      <p className="text-sm text-slate-600">כניסה עם דוא״ל וסיסמה פעילה תמיד – לגבאים, למתפללים שהוזמנו ולך.</p>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" className="size-5" checked={phoneLogin} onChange={(e) => setPhoneLogin(e.target.checked)} />
+        <span>כניסת מתפללים עם מספר טלפון וקוד (כשכבוי – הכפתור מוסתר והכניסה חסומה)</span>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-medium text-slate-700">לאן נשלח הקוד (כניסה בטלפון וקישורים אישיים)</span>
+        <Select value={channel} onChange={(e) => setChannel(e.target.value)}>
+          <option value="">לפי הגדרות השרת ({envChannel})</option>
+          {channels.map((c) => (
+            <option key={c.value} value={c.value} disabled={!c.ready}>
+              {c.label}{c.ready ? "" : " – לא מוגדר"}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <ul className="list-disc space-y-1 ps-5 text-xs text-slate-500">
+        {channels.filter((c) => c.note).map((c) => <li key={c.value}>{c.label}: {c.note}</li>)}
+      </ul>
+      <div className="flex items-center gap-3"><Button>שמירה</Button>{note}</div>
+    </form>
+  );
 }

@@ -19,3 +19,10 @@ export function displayPhone(p: string | null | undefined): string {
   const m = /^\+972(\d{1,2})(\d{7})$/.exec(p);
   return m ? `0${m[1]}-${m[2]}` : p;
 }
+
+/** d•••••@gmail.com – enough for the owner to recognise, nothing for anyone else. */
+export function maskEmail(e: string): string {
+  const [user, domain] = e.split("@");
+  if (!user || !domain) return "•••";
+  return `${user[0]}${"•".repeat(Math.max(2, Math.min(user.length - 1, 6)))}@${domain}`;
+}

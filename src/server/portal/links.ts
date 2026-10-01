@@ -3,7 +3,8 @@ import { withContext, type DbContext } from "../db/context";
 import { randomDigits, randomToken, sha256 } from "../crypto";
 import { DomainError } from "../errors";
 import { identityProvider } from "../providers/registry";
-import { maskPhone, normalizePhone } from "../util/phone";
+import { maskEmail, maskPhone, normalizePhone } from "../util/phone";
+import { effectiveChannel, loginSettingsTx } from "../auth/login-settings";
 import type { Tx } from "../db/client";
 import { tenantSettings } from "../settings";
 
@@ -43,14 +44,27 @@ async function resolveLink(token: string): Promise<LinkRow | null> {
 
 const invalidLink = () => new DomainError("link_invalid", "הקישור אינו בתוקף. אפשר לבקש קישור חדש מהגבאי או מתפריט הוואטסאפ.", 404);
 
-/** Public info for the link landing page: synagogue name and masked phone only. */
+type CardContact = { phone: string | null; email: string | null };
+
+/**
+ * Where this card's code goes on the configured channel, masked (null = cannot receive a code).
+ * The phone is always required: rate limits and portal sessions are keyed by it.
+ */
+function codeTarget(channel: string, c: CardContact): { kind: "phone" | "email"; masked: string } | null {
+  if (!c.phone) return null;
+  if (channel === "email") return c.email ? { kind: "email", masked: maskEmail(c.email) } : null;
+  return { kind: "phone", masked: maskPhone(c.phone) };
+}
+
+/** Public info for the link landing page: synagogue name and the masked code destination only. */
 export async function linkLanding(token: string) {
   const l = await resolveLink(token);
   if (!l) throw invalidLink();
   return withContext({ kind: "system", tenantId: l.tenant_id }, async (tx) => {
     const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: l.tenant_id } });
     const c = await tx.congregant.findUniqueOrThrow({ where: { id: l.congregant_id } });
-    return { synagogueName: tenant.name, maskedPhone: c.phone ? maskPhone(c.phone) : null };
+    const target = codeTarget(effectiveChannel(await loginSettingsTx(tx)), c);
+    return { synagogueName: tenant.name, target };
   });
 }
 
@@ -58,9 +72,12 @@ export async function requestOtp(token: string) {
   const l = await resolveLink(token);
   if (!l) throw invalidLink();
   const ctx: DbContext = { kind: "system", tenantId: l.tenant_id };
-  const { code, phone } = await withContext(ctx, async (tx) => {
+  const { code, phone, email, channel, target, synagogueName } = await withContext(ctx, async (tx) => {
     const c = await tx.congregant.findUniqueOrThrow({ where: { id: l.congregant_id } });
+    const channel = effectiveChannel(await loginSettingsTx(tx));
+    const target = codeTarget(channel, c);
     if (!c.phone) throw new DomainError("no_phone", "לכרטיס אין מספר טלפון מאומת. אפשר לפנות לגבאי.", 409);
+    if (!target) throw new DomainError("no_email", "לכרטיס אין כתובת דוא״ל לשליחת הקוד. אפשר לפנות לגבאי.", 409);
     const now = Date.now();
     // Limits are per phone (not per link), so issuing new links cannot be used to bypass them.
     const recent = await tx.otpChallenge.findMany({ where: { phone: c.phone, createdAt: { gt: new Date(now - 86400_000) } } });
@@ -70,10 +87,11 @@ export async function requestOtp(token: string) {
     await tx.otpChallenge.create({
       data: { tenantId: l.tenant_id, linkId: l.link_id, phone: c.phone, codeHash: sha256(`${l.link_id}:${code}`), expiresAt: new Date(now + OTP_TTL_MIN * 60_000) },
     });
-    return { code, phone: c.phone };
+    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: l.tenant_id }, select: { name: true } });
+    return { code, phone: c.phone, email: c.email, channel, target, synagogueName: tenant.name };
   });
-  await identityProvider().sendCode({ tenantId: l.tenant_id, phone, code });
-  return { maskedPhone: maskPhone(phone) };
+  await identityProvider(channel).sendCode({ tenantId: l.tenant_id, phone, code, email, synagogueName });
+  return { target };
 }
 
 /** Verifies the code and opens a portal session. Returns the raw session token for an httpOnly cookie. */
@@ -108,7 +126,16 @@ export async function verifyOtp(token: string, code: string) {
   });
 }
 
-export type PortalIdentity = { tenantId: string; congregantIds: string[]; primaryCongregantId: string; phone: string; sessionId: string };
+export type PortalIdentity = {
+  tenantId: string;
+  congregantIds: string[];
+  primaryCongregantId: string;
+  phone: string;
+  sessionId: string;
+  /** "phone" = verified code (personal link / phone login); "account" = signed-in app account. */
+  via?: "phone" | "account";
+  userId?: string;
+};
 
 /** Resolves the portal cookie to the cards this verified phone may see (link card + explicit family permissions). */
 export async function portalIdentity(sessionToken: string | undefined): Promise<PortalIdentity | null> {
@@ -127,7 +154,7 @@ export async function portalIdentity(sessionToken: string | undefined): Promise<
     // (its own "self" permissions and explicit family permissions).
     const perms = await tx.contactPermission.findMany({ where: { phone: s.phone, revokedAt: null } });
     const ids = [...new Set([link.congregantId, ...perms.map((f) => f.congregantId)])];
-    return { tenantId: s.tenant_id, congregantIds: ids, primaryCongregantId: link.congregantId, phone: s.phone, sessionId: s.session_id };
+    return { tenantId: s.tenant_id, congregantIds: ids, primaryCongregantId: link.congregantId, phone: s.phone, sessionId: s.session_id, via: "phone" as const };
   });
 }
 
@@ -156,12 +183,31 @@ export async function startPhoneLogin(phoneInput: string): Promise<{ ticket: str
   const phone = normalizePhone(phoneInput);
   if (!phone) throw new DomainError("phone_invalid", "מספר הטלפון אינו תקין. לדוגמה: 050-1234567");
   const cards = await cardsByPhone(phone);
-  const first = cards[0];
+  let first = cards[0];
   if (!first) return { ticket: null };
+  if (cards.length > 1) {
+    // With codes by e-mail, use a card that has an address (the same phone may lack one in another synagogue).
+    for (const c of cards) {
+      const ok = await withContext({ kind: "system", tenantId: c.tenant_id }, async (tx) => {
+        const card = await tx.congregant.findUnique({ where: { id: c.congregant_id }, select: { phone: true, email: true } });
+        return !!card && !!codeTarget(effectiveChannel(await loginSettingsTx(tx)), card);
+      });
+      if (ok) {
+        first = c;
+        break;
+      }
+    }
+  }
   const { token } = await withContext({ kind: "system", tenantId: first.tenant_id }, (tx) =>
     issuePersonalLink(tx, first.tenant_id, first.congregant_id, "system:phone-login", LOGIN_LINK_TTL_DAYS),
   );
-  await requestOtp(token);
+  try {
+    await requestOtp(token);
+  } catch (e) {
+    // No address for the configured channel: answer exactly like an unknown number.
+    if (e instanceof DomainError && e.code === "no_email") return { ticket: null };
+    throw e;
+  }
   return { ticket: token };
 }
 

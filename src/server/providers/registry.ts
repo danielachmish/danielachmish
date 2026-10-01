@@ -9,6 +9,7 @@ import { normalizePhone } from "../util/phone";
 import { fakeAllowed } from "./guard";
 import { whatsappIdentityProvider } from "./whatsapp-otp";
 import { twilioSmsProvider } from "./twilio-sms";
+import { emailIdentityProvider } from "./email";
 
 // Integration accounts must match the deployment's mode for their kind; fake is impossible in production.
 function assertEnvironment(env: string, kind: string = "payment") {
@@ -35,13 +36,14 @@ export function messagingProvider(name: string): MessagingProvider {
   throw new Error(`unknown messaging provider ${name}`);
 }
 
-export function identityProvider(): IdentityDeliveryProvider {
-  const ch = process.env.OTP_CHANNEL ?? "fake";
+/** Delivery for one-time codes. The channel is the admin's choice (login settings) or OTP_CHANNEL. */
+export function identityProvider(ch: string = process.env.OTP_CHANNEL ?? "fake"): IdentityDeliveryProvider {
   if (ch === "fake") {
     if (isProductionEnv()) throw new Error("fake OTP channel is disabled in production");
     return fakeIdentityProvider;
   }
   if (ch === "whatsapp") return whatsappIdentityProvider;
+  if (ch === "email") return emailIdentityProvider;
   if (ch === "sms") {
     // Demo site: real SMS only to numbers explicitly allowed (e.g. the owner's phone); the demo's dummy
     // numbers may belong to real people, so their codes stay in the development inbox.

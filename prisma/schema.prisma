@@ -29,6 +29,7 @@ model user {
   sessions      session[]
   accounts      account[]
   memberships   Membership[]
+  congregantAccounts CongregantAccount[]
 }
 
 model session {
@@ -504,6 +505,42 @@ model PortalSession {
   tokenHash    String   @unique
   expiresAt    DateTime
   createdAt    DateTime @default(now())
+}
+
+// App account of a congregant (email + password, Better Auth user) linked to his card(s).
+// Created only by accepting an invitation the gabbai issued for that card – never by self sign-up.
+model CongregantAccount {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  congregantId String    @db.Uuid
+  userId       String
+  inviteId     String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  revokedBy    String?
+
+  user user @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, congregantId])
+  @@index([userId])
+  // Partial unique index "one active link per (card, user)" is created in SQL migration.
+}
+
+// Single-use invitation to open an app account for a card. Only the token's SHA-256 is stored.
+model AppInvite {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  congregantId String    @db.Uuid
+  tokenHash    String    @unique
+  sentToEmail  String?   // set when the invitation was e-mailed: accepting with this address proves ownership
+  expiresAt    DateTime
+  usedAt       DateTime?
+  usedBy       String?
+  revokedAt    DateTime?
+  createdBy    String
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, congregantId])
 }
 
 // ───────────────────────────── Import / audit ─────────────────────────────

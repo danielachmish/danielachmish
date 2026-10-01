@@ -8,5 +8,5 @@ export function proxy(_req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/(dashboard|congregants|pledges|payments|tasks|reminders|settings|admin|me|p|pay|enter)(.*)", "/api/:path*"],
+  matcher: ["/(dashboard|congregants|pledges|payments|tasks|reminders|settings|admin|me|p|pay|enter|invite)(.*)", "/api/:path*"],
 };

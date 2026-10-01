@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireGabbai } from "@/server/auth/session";
 import { SignOutButton } from "@/components/sign-out";
+import { RoleSwitchLink } from "@/components/role-switch";
 
 const NAV = [
   ["/dashboard", "לוח בקרה"],
@@ -24,7 +25,10 @@ export default async function GabbaiLayout({ children }: { children: React.React
             <p className="truncate font-semibold">{g.tenantName}</p>
             <p className="truncate text-xs text-slate-500">{g.name}</p>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-1">
+            <RoleSwitchLink userId={g.userId} />
+            <SignOutButton />
+          </div>
         </div>
         <nav aria-label="ניווט ראשי" className="mx-auto max-w-6xl overflow-x-auto px-2">
           <ul className="flex gap-1 whitespace-nowrap pb-2">

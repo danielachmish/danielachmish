@@ -1,9 +1,10 @@
 import { fakePut } from "./fake-store";
 import { fakeAllowed } from "./guard";
+import type { IdentityDeliveryProvider } from "./types";
 
 // Transactional email (account verification, password reset). Resend is used when RESEND_API_KEY is set;
 // otherwise, outside production, messages go to the development inbox (/dev/inbox).
-export type Email = { to: string; subject: string; text: string; url?: string };
+export type Email = { to: string; subject: string; text: string; url?: string; code?: string };
 
 export async function sendEmail(msg: Email): Promise<void> {
   const key = process.env.RESEND_API_KEY;
@@ -20,5 +21,19 @@ export async function sendEmail(msg: Email): Promise<void> {
     return;
   }
   if (!fakeAllowed()) throw new Error("email delivery provider is not configured");
-  await fakePut("email", `${msg.to}:${Date.now()}`, { to: msg.to, subject: msg.subject, url: msg.url ?? "" });
+  await fakePut("email", `${msg.to}:${Date.now()}`, { to: msg.to, subject: msg.subject, url: msg.url ?? "", code: msg.code ?? "" });
 }
+
+/** One-time codes by e-mail to the address on the congregant's card (free alternative to SMS). */
+export const emailIdentityProvider: IdentityDeliveryProvider = {
+  name: "email",
+  async sendCode({ email, code, synagogueName }) {
+    if (!email) throw new Error("card has no e-mail address for verification codes");
+    await sendEmail({
+      to: email,
+      subject: `קוד כניסה: ${code}`,
+      code,
+      text: `קוד הכניסה שלך${synagogueName ? ` ל${synagogueName}` : ""}: ${code}\n\nהקוד בתוקף ל-10 דקות. אם לא ביקשת קוד, אפשר להתעלם מהודעה זו.`,
+    });
+  },
+};

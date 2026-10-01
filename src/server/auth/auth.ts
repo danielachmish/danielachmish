@@ -30,7 +30,9 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => mail(user.email, "אימות כתובת דוא\"ל", "לאימות כתובת הדוא\"ל שלך:", url),
   },
   user: { additionalFields: { platformRole: { type: "string", input: false, defaultValue: "none" } } },
-  session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24 },
+  // Congregants and gabbaim stay signed in on their phone for 90 days (renewed daily while used).
+  // The admin station requires a fresh sign-in after ADMIN_SESSION_MAX_HOURS (session.ts).
+  session: { expiresIn: 60 * 60 * 24 * 90, updateAge: 60 * 60 * 24 },
   rateLimit: {
     enabled: true,
     storage: "database",

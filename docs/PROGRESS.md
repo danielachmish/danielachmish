@@ -13,8 +13,8 @@
 |---|---|
 | `npm run lint` | נקי |
 | `npm run typecheck` | נקי |
-| `npm run test:unit` + `test:integration` | 179/179 (עדכון אחרון) |
-| `npm run test:e2e` | 31/31 (Chromium, שרת dev + worker אמיתי) |
+| `npm run test:unit` + `test:integration` | 188/188 (עדכון אחרון) |
+| `npm run test:e2e` | 35/35 (Chromium, שרת dev + worker אמיתי) |
 | `npm run build` | הצליח |
 | `scripts/restore-check.sh` | טביעת אצבע זהה |
 | `next start` (ייצור) | `/dev/*` → 404, `Cache-Control: private, no-store`, `Referrer-Policy: no-referrer` |
@@ -29,6 +29,8 @@
 - קודי אימות ב-SMS דרך Twilio (`OTP_CHANNEL=sms`); בדמו רק למספרים ב-`DEMO_SMS_ALLOW`.
 - חיבור וואטסאפ עסקי בלחיצה (Embedded Signup) + יצירת 3 תבניות אוטומטית. מדריך: `docs/WHATSAPP_AND_SMS_SETUP.md`.
 - קישורים אישיים אינם נשמרים בהיסטוריית ההודעות.
+- כניסה אחת לכולם עם 3 תפקידים (מנהל/גבאי/מתפלל); חשבונות מתפללים בהזמנת גבאי (`/invite`), ניתוק מהכרטיס; חיבור 90 יום, ניהול 12 שעות.
+- כניסה בטלפון + קוד מוסתרת, מתג וערוץ קוד (כולל דוא"ל – חינם) בעמדת הניהול ← "הגדרות מערכת".
 - פריסת הדגמה ב-Vercel ללא הגדרות (סודות נגזרים מכתובת המסד) – פעילה ב-https://synagogue-saas.vercel.app.
 
 ## שלב נוכחי
@@ -37,7 +39,8 @@
 ## הפעולה הבאה
 1. לאמת את חוזה PayPlus מול התיעוד (docs/PROVIDER_SETUP.md §PayPlus) ולהריץ מול sandbox – ממתין לתיעוד/חשבון מהבעלים.
 2. לברר עם אילו חברות סליקה בתי הכנסת עובדים ולכתוב להן מתאמים (קטלוג: src/server/integrations/catalog.ts).
-3. הבעלים: חשבון Twilio ומשתני סביבה; אפליקציית Meta + Embedded Signup לפי `docs/WHATSAPP_AND_SMS_SETUP.md`; אימות מול האתר הפרוס (לא נבדק מול Meta/Twilio אמיתיים – חסימת רשת).
+3. הבעלים: Resend + סאב-דומיין (`RESEND_API_KEY`, `EMAIL_FROM`) כדי שהזמנות וקודים יגיעו בדוא"ל אמיתי.
+4. הבעלים (בהמשך): חשבון Twilio ומשתני סביבה; אפליקציית Meta + Embedded Signup לפי `docs/WHATSAPP_AND_SMS_SETUP.md`; אימות מול האתר הפרוס (לא נבדק מול Meta/Twilio אמיתיים – חסימת רשת).
 
 ## חסימות
 - אין גישה לתיעוד PayPlus מסביבת הפיתוח (חסימת רשת) ואין הרשאות sandbox.

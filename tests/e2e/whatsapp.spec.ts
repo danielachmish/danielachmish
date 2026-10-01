@@ -11,9 +11,9 @@ test("inbound WhatsApp '1' from the shared number is answered per synagogue acco
   expect((await send("wa-demo-1", `e2e-${Date.now()}-a`)).status()).toBe(200);
   expect((await send("wa-demo-2", `e2e-${Date.now()}-b`)).status()).toBe(200);
   await expect
-    .poll(async () => (await ownerQuery<{ n: number }>(`SELECT count(*)::int n FROM "DevFakeRecord" WHERE kind='message' AND data->>'to'='+972501111111' AND data->>'text' LIKE 'היתרה הפתוחה ב%'`))[0]!.n, { timeout: 60_000 })
+    .poll(async () => (await ownerQuery<{ n: number }>(`SELECT count(*)::int n FROM "DevFakeRecord" WHERE kind='message' AND data->>'to'='+972501111111' AND data->>'text' LIKE 'החובות שלך ב%'`))[0]!.n, { timeout: 60_000 })
     .toBe(2);
-  const msgs = await ownerQuery<{ text: string; from: string }>(`SELECT data->>'text' text, data->>'from' "from" FROM "DevFakeRecord" WHERE kind='message' AND data->>'to'='+972501111111' AND data->>'text' LIKE 'היתרה הפתוחה ב%'`);
+  const msgs = await ownerQuery<{ text: string; from: string }>(`SELECT data->>'text' text, data->>'from' "from" FROM "DevFakeRecord" WHERE kind='message' AND data->>'to'='+972501111111' AND data->>'text' LIKE 'החובות שלך ב%'`);
   expect(msgs.find((m) => m.from === "wa-demo-1")!.text).toContain("180");
   expect(msgs.find((m) => m.from === "wa-demo-2")!.text).toContain("360");
 });

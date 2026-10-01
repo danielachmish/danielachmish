@@ -6,11 +6,17 @@ import { run } from "@/server/actions/result";
 import { DomainError } from "@/server/errors";
 import { startPhoneLogin, verifyOtp } from "@/server/portal/links";
 import { PORTAL_COOKIE } from "@/server/portal/cookie";
+import { loginSettings } from "@/server/auth/login-settings";
+
+async function assertEnabled() {
+  if (!(await loginSettings()).phoneLogin) throw new DomainError("disabled", "הכניסה עם מספר טלפון אינה פעילה.", 404);
+}
 
 // Congregant login with phone + one-time code. Unknown numbers get an indistinguishable dummy ticket and the
 // same "wrong code" answer, so the page reveals nothing about who is registered.
 export async function startPhoneLoginAction(phone: string) {
   return run(async () => {
+    await assertEnabled();
     const r = await startPhoneLogin(phone);
     return { ticket: r.ticket ?? randomToken() };
   });
@@ -18,6 +24,7 @@ export async function startPhoneLoginAction(phone: string) {
 
 export async function verifyPhoneLoginAction(ticket: string, code: string) {
   return run(async () => {
+    await assertEnabled();
     try {
       const r = await verifyOtp(ticket, code.trim());
       (await cookies()).set(PORTAL_COOKIE, r.sessionToken, {

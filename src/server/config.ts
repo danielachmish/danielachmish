@@ -13,7 +13,7 @@ const schema = z
       .string()
       .refine((v) => Buffer.from(v, "base64").length === 32, "APP_ENCRYPTION_KEY must be 32 bytes, base64"),
     PROVIDER_MODE: z.enum(["fake", "sandbox", "live"]).default("fake"),
-    OTP_CHANNEL: z.enum(["fake", "whatsapp", "sms"]).default("fake"),
+    OTP_CHANNEL: z.enum(["fake", "whatsapp", "sms", "email"]).default("fake"),
     MESSAGING_MODE: z.enum(["fake", "sandbox", "live"]).optional(),
     SAAS_PLAN_PRICE_AGOROT: z.coerce.number().int().min(0).default(0),
     SAAS_PLAN_MONTHLY_MESSAGE_QUOTA: z.coerce.number().int().min(0).default(500),

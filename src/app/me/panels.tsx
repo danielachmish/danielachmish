@@ -1,7 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { inquiryAction, optOutAction, payAction, reportPaidAction, switchSynagogueAction } from "./actions";
+import { inquiryAction, logoutAction, optOutAction, payAction, reportPaidAction, switchSynagogueAction } from "./actions";
+import { authClient } from "@/server/auth/client";
 import { Alert, Button, Card, Field, Input, Money, Select, Textarea } from "@/components/ui";
 
 const NET = { ok: false as const, error: "אין חיבור לשרת. נסו שוב." };
@@ -162,7 +163,7 @@ export function SwitchSynagogue({ current, others }: { current: string; others: 
   const [err, setErr] = useState<string | null>(null);
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-      <p className="mb-2">מוצג: <b>{current}</b>. המספר שלך רשום גם ב:</p>
+      <p className="mb-2">מוצג: <b>{current}</b>. יש לך כרטיס גם ב:</p>
       <div className="flex flex-wrap gap-2">
         {others.map((o) => (
           <Button
@@ -172,7 +173,7 @@ export function SwitchSynagogue({ current, others }: { current: string; others: 
             onClick={async () => {
               const r = await switchSynagogueAction(o.tenantId).catch(() => NET);
               if (!r.ok) return setErr(r.error);
-              window.location.replace("/me");
+              window.location.replace(`/me?t=${o.tenantId}`);
             }}
           >
             {o.name}
@@ -181,5 +182,20 @@ export function SwitchSynagogue({ current, others }: { current: string; others: 
       </div>
       {err && <Alert tone="error">{err}</Alert>}
     </div>
+  );
+}
+
+export function MeSignOut({ account }: { account: boolean }) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={async () => {
+        await logoutAction().catch(() => undefined);
+        if (account) await authClient.signOut().catch(() => undefined);
+        window.location.replace(account ? "/login" : "/");
+      }}
+    >
+      יציאה
+    </Button>
   );
 }

@@ -1,5 +1,29 @@
 import { test, expect, devices } from "@playwright/test";
-import { latestOtp } from "./helpers";
+import { latestOtp, ownerQuery } from "./helpers";
+
+const setPhoneLogin = (on: boolean) =>
+  ownerQuery(
+    `INSERT INTO "PlatformSetting" (key, value, "updatedAt") VALUES ('congregant_login', $1, now())
+     ON CONFLICT (key) DO UPDATE SET value = $1, "updatedAt" = now()`,
+    [JSON.stringify({ phoneLogin: on, codeChannel: null })],
+  );
+
+test.beforeAll(() => setPhoneLogin(true));
+test.afterAll(() => setPhoneLogin(false));
+
+test("phone login is hidden while the admin keeps it off", async ({ browser }) => {
+  await setPhoneLogin(false);
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const p = await ctx.newPage();
+  await p.goto("/login");
+  await expect(p.getByRole("heading", { name: "כניסה" })).toBeVisible();
+  await expect(p.getByText("כניסה עם מספר טלפון וקוד")).toHaveCount(0);
+  expect((await p.goto("/enter"))!.status()).toBe(404);
+  await setPhoneLogin(true);
+  await p.goto("/login");
+  await expect(p.getByRole("link", { name: "כניסה עם מספר טלפון וקוד" })).toBeVisible();
+  await ctx.close();
+});
 
 test("congregant logs in with phone + code on a 360px phone and sees the debts", async ({ browser }) => {
   const ctx = await browser.newContext({ ...devices["Pixel 5"], viewport: { width: 360, height: 740 }, storageState: { cookies: [], origins: [] } });

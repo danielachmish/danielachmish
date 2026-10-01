@@ -47,8 +47,16 @@ export async function requireGabbai(): Promise<GabbaiSession> {
   return s;
 }
 
+/** Admin sessions are short even though sessions last 90 days: older ones must sign in again. */
+export const ADMIN_SESSION_MAX_HOURS = 12;
+
 export async function requireAdmin() {
-  const user = await currentUser();
+  const s = await auth.api.getSession({ headers: await headers() });
+  const user = s?.user;
   if (!user || !user.emailVerified || (user as { platformRole?: string }).platformRole !== "admin") redirect("/login");
+  if (Date.now() - new Date(s!.session.createdAt).getTime() > ADMIN_SESSION_MAX_HOURS * 3600_000) {
+    await auth.api.revokeSession({ headers: await headers(), body: { token: s!.session.token } }).catch(() => undefined);
+    redirect("/login?e=reauth");
+  }
   return { userId: user.id, actor: { type: "platform_admin" as const, id: user.id } };
 }

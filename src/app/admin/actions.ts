@@ -16,6 +16,7 @@ import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/
 import { finishEmbeddedSignup, storeWhatsappConnection, type SignupResult } from "@/server/integrations/whatsapp-signup";
 import { saveReminderDefaults, saveSettingsDefaults, type ReminderDefaults } from "@/server/admin/defaults";
 import type { TenantSettings } from "@/server/settings";
+import { saveLoginSettings, type LoginSettings } from "@/server/auth/login-settings";
 
 /** Creates (or finds) the gabbai account and sends a password-setup link. The admin never knows the password. */
 async function ensureGabbaiUser(email: string, name: string) {
@@ -125,4 +126,13 @@ export async function adminCompleteWhatsappSignupAction(tenantId: string, input:
     revalidatePath(`/admin/tenants/${id}`);
     return { templates: r.templates };
   }, "וואטסאפ חובר עבור בית הכנסת. תבניות ההודעה נשלחו לאישור של Meta.");
+}
+
+export async function saveLoginSettingsAction(input: LoginSettings) {
+  return run(async () => {
+    const a = await requireAdmin();
+    await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveLoginSettings(tx, a.userId, input));
+    revalidatePath("/admin/defaults");
+    revalidatePath("/login");
+  }, "הגדרות הכניסה נשמרו.");
 }

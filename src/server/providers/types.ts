@@ -79,7 +79,7 @@ export interface MessagingProvider {
 // ───────── identity (OTP delivery) ─────────
 export interface IdentityDeliveryProvider {
   readonly name: string;
-  sendCode(input: { tenantId: string; phone: string; code: string }): Promise<void>;
+  sendCode(input: { tenantId: string; phone: string; code: string; email?: string | null; synagogueName?: string }): Promise<void>;
 }
 
 // ───────── receipts ─────────

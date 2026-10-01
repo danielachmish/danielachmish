@@ -9,6 +9,8 @@ import { CongregantForm } from "@/components/gabbai/congregant-form";
 import {
   AddPledgeForm,
   AdjustPledgeForm,
+  AppInviteButtons,
+  RevokeAccountButton,
   ConsentButtons,
   ExternalPaymentForm,
   FamilyAccessForm,
@@ -19,6 +21,7 @@ import { ApplyCreditButton, SendReminderNow } from "@/components/gabbai/reminder
 import { ShareToWhatsAppButton } from "@/components/gabbai/share-button";
 import { shareWarnings } from "@/server/reminders/share";
 import { SKIP_TEXT } from "@/server/reminders/service";
+import { cardAccounts } from "@/server/accounts/invites";
 
 const REASON: Record<string, string> = { payment: "תשלום", credit_apply: "שימוש בזכות", refund: "החזר", pledge_reduction: "הפחתת נדר" };
 
@@ -35,10 +38,11 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
     const tasks = await tx.task.findMany({ where: { congregantId: id, status: "open" } });
     const messages = await tx.outboundMessage.findMany({ where: { congregantId: id }, orderBy: { createdAt: "desc" }, take: 5 });
     const share = await shareWarnings(tx, g.tenantId, id);
-    return { c, card, consent, family, tasks, messages, share };
+    const app = await cardAccounts(tx, id);
+    return { c, card, consent, family, tasks, messages, share, app };
   });
   if (!data) notFound();
-  const { c, card, consent, family, tasks, share } = data;
+  const { c, card, consent, family, tasks, share, app } = data;
   const s = card.summary;
   const pledgeName = new Map(card.pledges.map((p) => [p.id, `${fmtDate(p.pledgeDate)} ${p.description ?? p.category ?? ""}`.trim()]));
 
@@ -177,6 +181,29 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
             </>
           )}
           <PersonalLinkButtons congregantId={c.id} />
+        </Card>
+        <Card title="גישה לאפליקציה">
+          {app.accounts.length > 0 ? (
+            <ul className="mb-3 space-y-1 text-sm">
+              {app.accounts.map((x) => (
+                <li key={x.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <span dir="ltr">{x.email}</span>{" "}
+                    {x.verified ? <Badge tone="green">מחובר מ-{fmtDate(x.since)}</Badge> : <Badge tone="amber">ממתין לאימות דוא״ל</Badge>}
+                  </span>
+                  <RevokeAccountButton accountId={x.id} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mb-2 text-sm text-slate-600">למתפלל אין עדיין חשבון. אחרי ההזמנה הוא בוחר סיסמה ונכנס עם הדוא״ל שלו – ורואה רק את הכרטיס שלו.</p>
+          )}
+          {app.pendingInvite && (
+            <p className="mb-2 text-xs text-slate-500">
+              נשלחה הזמנה{app.pendingInvite.sentToEmail ? <> ל-<span dir="ltr">{app.pendingInvite.sentToEmail}</span></> : null}, בתוקף עד {fmtDate(app.pendingInvite.expiresAt)}.
+            </p>
+          )}
+          <AppInviteButtons congregantId={c.id} phone={c.phone} hasEmail={!!c.email} />
         </Card>
         <Card title="הרשאות משפחה">
           {family.length > 0 && (

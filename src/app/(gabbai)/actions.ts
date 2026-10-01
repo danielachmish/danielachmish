@@ -27,6 +27,7 @@ import { issuePersonalLink, revokeLinks } from "@/server/portal/links";
 import { connectIntegration, disconnectIntegration, type ConnectInput } from "@/server/integrations/connect";
 import { finishEmbeddedSignup, storeWhatsappConnection, type SignupResult } from "@/server/integrations/whatsapp-signup";
 import { audit } from "@/server/audit";
+import { inviteCongregant, revokeCongregantAccount } from "@/server/accounts/invites";
 import { prisma } from "@/server/db/client";
 import { after } from "next/server";
 import { inlineJobs } from "@/server/env";
@@ -435,4 +436,26 @@ export async function completeWhatsappSignupAction(input: SignupResult) {
     revalidatePath("/settings");
     return { templates: r.templates };
   }, "וואטסאפ חובר. תבניות ההודעה נשלחו לאישור של Meta (בדרך כלל דקות עד שעות).");
+}
+
+// ───────── congregant app accounts (invitation by the gabbai) ─────────
+
+export async function inviteToAppAction(congregantId: string, via: "email" | "link") {
+  return run(
+    async () => {
+      const g = await requireGabbai();
+      const r = await inviteCongregant(g, uuid.parse(congregantId), z.enum(["email", "link"]).parse(via));
+      revalidatePath(`/congregants/${congregantId}`);
+      return r;
+    },
+    via === "email" ? "ההזמנה נשלחה לדוא״ל של המתפלל." : "נוצרה הזמנה.",
+  );
+}
+
+export async function revokeAppAccountAction(accountId: string) {
+  return run(async () => {
+    const g = await requireGabbai();
+    await withContext(g.ctx, (tx) => revokeCongregantAccount(tx, g.tenantId, g.actor, uuid.parse(accountId)));
+    revalidatePath("/congregants");
+  }, "החשבון נותק מהכרטיס.");
 }

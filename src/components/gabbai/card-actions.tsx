@@ -6,8 +6,10 @@ import {
   adjustPledgeAction,
   consentAction,
   familyAccessAction,
+  inviteToAppAction,
   issueLinkAction,
   recordExternalPaymentAction,
+  revokeAppAccountAction,
   revokeLinksAction,
 } from "@/app/(gabbai)/actions";
 import type { ActionResult } from "@/server/actions/result";
@@ -273,5 +275,68 @@ export function PersonalLinkButtons({ congregantId }: { congregantId: string }) 
       )}
       {note}
     </div>
+  );
+}
+
+/** Invite the congregant to open an app account (e-mail + password) linked to this card. */
+export function AppInviteButtons({ congregantId, phone, hasEmail }: { congregantId: string; phone: string | null; hasEmail: boolean }) {
+  const { busy, submit, note } = useSubmit();
+  const [url, setUrl] = useState<string | null>(null);
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {phone && (
+          <Button
+            className="bg-[#1f8f4e] hover:bg-[#187540]"
+            disabled={busy}
+            onClick={async () => {
+              // Open the tab synchronously (popup blockers), then point it at wa.me once the invitation exists.
+              const w = window.open("", "_blank");
+              let opened = false;
+              await submit(
+                () => inviteToAppAction(congregantId, "link"),
+                (r) => {
+                  opened = true;
+                  setUrl(r.data?.url ?? null);
+                  const wa = `https://wa.me/${phone.replace(/^\+/, "")}?text=${encodeURIComponent(r.data?.text ?? "")}`;
+                  if (w) w.location.href = wa;
+                  else window.location.href = wa;
+                },
+              );
+              if (!opened) w?.close();
+            }}
+          >
+            הזמנה לאפליקציה בוואטסאפ
+          </Button>
+        )}
+        {hasEmail && (
+          <Button variant="secondary" disabled={busy} onClick={() => submit(() => inviteToAppAction(congregantId, "email"), (r) => setUrl(r.data?.url ?? null))}>
+            הזמנה בדוא״ל
+          </Button>
+        )}
+        <Button variant="ghost" disabled={busy} onClick={() => submit(() => inviteToAppAction(congregantId, "link"), (r) => setUrl(r.data?.url ?? null))}>
+          קישור הזמנה להעתקה
+        </Button>
+      </div>
+      {url && (
+        <div className="space-y-1">
+          <Input readOnly value={url} dir="ltr" onFocus={(e) => e.currentTarget.select()} aria-label="קישור הזמנה" />
+          <p className="text-xs text-slate-500">הקישור חד-פעמי ובתוקף 14 יום. הזמנה חדשה מבטלת את הקודמת.</p>
+        </div>
+      )}
+      {note}
+    </div>
+  );
+}
+
+export function RevokeAccountButton({ accountId }: { accountId: string }) {
+  const { busy, submit, note } = useSubmit();
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Button variant="ghost" className="min-h-8 text-sm" disabled={busy} onClick={() => confirm("לנתק את החשבון מהכרטיס? המתפלל לא יראה עוד את הנתונים.") && submit(() => revokeAppAccountAction(accountId))}>
+        ניתוק
+      </Button>
+      {note}
+    </span>
   );
 }

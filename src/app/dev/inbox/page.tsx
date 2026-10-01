@@ -20,7 +20,12 @@ export default async function DevInbox() {
                 <p className="font-medium">{TITLE[r.kind]} · {fmtDateTime(r.createdAt)}</p>
                 {r.kind === "otp" && <p>ל-<span className="num">{String(d.phone)}</span>: קוד <b className="num text-lg">{String(d.code)}</b></p>}
                 {r.kind === "message" && <p className="whitespace-pre-wrap">ל-<span className="num">{String(d.to)}</span> (חשבון {String(d.from)}): {String(d.text ?? "")}</p>}
-                {r.kind === "email" && <p>ל-{String(d.to)}: {String(d.subject)} – <a className="break-all text-brand-700 underline" href={String(d.url)}>{String(d.url)}</a></p>}
+                {r.kind === "email" && (
+                  <p>
+                    ל-{String(d.to)}: {String(d.subject)}
+                    {d.url ? <> – <a className="break-all text-brand-700 underline" href={String(d.url)}>{String(d.url)}</a></> : null}
+                  </p>
+                )}
                 {r.kind === "payment_txn" && <p className="num text-right">{String(d.operation)} {String(d.status)} {Number(d.amountAgorot) / 100}₪ tx={String(d.transactionId)} account={String(d.accountId)}</p>}
                 {r.kind === "receipt" && <p>קבלה {String(d.documentNumber)}</p>}
               </li>

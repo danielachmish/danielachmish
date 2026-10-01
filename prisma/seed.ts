@@ -99,11 +99,28 @@ async function synagogue(n: 1 | 2, name: string, gabbaiEmail: string, gabbaiName
   console.log(`✓ ${name} (gabbai ${gabbaiEmail})`);
 }
 
+/** Demo congregant app account, linked to "אברהם דוגמה" (synagogue 1). Idempotent. */
+async function congregantAccount() {
+  const u = await user("mitpalel@example.test", "אברהם דוגמה");
+  await withContext({ kind: "system" }, async (sys) => {
+    const card = await sys.$queryRaw<{ tenant_id: string; congregant_id: string }[]>`SELECT * FROM find_cards_by_phone('+972502222222')`;
+    const c = card[0];
+    if (!c) return;
+    await withContext({ kind: "system", tenantId: c.tenant_id }, async (tx) => {
+      const linked = await tx.congregantAccount.findFirst({ where: { congregantId: c.congregant_id, userId: u.id, revokedAt: null } });
+      if (!linked) await tx.congregantAccount.create({ data: { tenantId: c.tenant_id, congregantId: c.congregant_id, userId: u.id } });
+      await tx.congregant.update({ where: { id: c.congregant_id }, data: { email: "mitpalel@example.test" } });
+    });
+  });
+  console.log("✓ congregant account mitpalel@example.test");
+}
+
 async function main() {
   await user("admin@example.test", "מנהל השירות", "admin");
   await synagogue(1, "בית כנסת אוהל יעקב (דמו)", "gabbai1@example.test", "גבאי ראשון");
   await synagogue(2, "בית כנסת היכל שלמה (דמו)", "gabbai2@example.test", "גבאי שני");
-  console.log(`\nDemo logins: admin@example.test, gabbai1@example.test, gabbai2@example.test${process.env.DEMO_PASSWORD ? "" : ` (password "${PASSWORD}")`}`);
+  await congregantAccount();
+  console.log(`\nDemo logins: admin@example.test, gabbai1@example.test, gabbai2@example.test, mitpalel@example.test${process.env.DEMO_PASSWORD ? "" : ` (password "${PASSWORD}")`}`);
   await prisma.$disconnect();
   process.exit(0);
 }

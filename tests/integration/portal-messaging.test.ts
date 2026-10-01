@@ -45,7 +45,7 @@ describe("personal link + OTP", () => {
     const { token } = await asTenant(tenantId, (t) => issuePersonalLink(t, tenantId, card.id, "g"));
     expect(token).not.toContain(PHONE.slice(-4));
     const l = await linkLanding(token);
-    expect(l).toEqual({ synagogueName: "היכל שלמה", maskedPhone: expect.stringMatching(/2233$/) });
+    expect(l).toEqual({ synagogueName: "היכל שלמה", target: { kind: "phone", masked: expect.stringMatching(/2233$/) } });
     expect(JSON.stringify(l)).not.toContain("300");
   });
 

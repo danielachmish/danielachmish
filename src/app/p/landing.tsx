@@ -7,7 +7,7 @@ import { Alert, Button, Field, Input } from "@/components/ui";
 export default function PortalLanding() {
   // Rendered client-only (see page.tsx), so reading the fragment during initialisation is safe.
   const [token] = useState(() => window.location.hash.slice(1) || null);
-  const [info, setInfo] = useState<{ synagogueName: string; maskedPhone: string | null } | null>(null);
+  const [info, setInfo] = useState<{ synagogueName: string; target: { kind: "phone" | "email"; masked: string } | null } | null>(null);
   const [stage, setStage] = useState<"loading" | "start" | "code" | "invalid">(() => (token ? "loading" : "invalid"));
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,10 +35,13 @@ export default function PortalLanding() {
     <Shell title={info?.synagogueName}>
       {stage === "start" && (
         <div className="space-y-3">
-          <p>לצפייה ביתרה ובתשלום נשלח קוד אימות לטלפון {info?.maskedPhone ? <span className="num">{info.maskedPhone}</span> : "הרשום"}.</p>
+          <p>
+            לצפייה ביתרה ובתשלום נשלח קוד אימות {info?.target?.kind === "email" ? "לדוא״ל" : "לטלפון"}{" "}
+            {info?.target ? <span className="num" dir="ltr">{info.target.masked}</span> : "הרשום"}.
+          </p>
           <Button
             className="w-full"
-            disabled={busy || !info?.maskedPhone}
+            disabled={busy || !info?.target}
             onClick={async () => {
               setBusy(true);
               const r = await requestOtpAction(token!).catch(() => ({ ok: false as const, error: "אין חיבור. נסו שוב." }));
@@ -50,7 +53,7 @@ export default function PortalLanding() {
           >
             שליחת קוד
           </Button>
-          {!info?.maskedPhone && <Alert tone="warn">לכרטיס אין טלפון רשום. פנו לגבאי.</Alert>}
+          {!info?.target && <Alert tone="warn">לכרטיס אין פרטי קשר לשליחת קוד. פנו לגבאי.</Alert>}
         </div>
       )}
       {stage === "code" && (
