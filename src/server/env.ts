@@ -94,6 +94,27 @@ function zeroConfigDemo() {
 }
 zeroConfigDemo();
 
+/**
+ * Production with a single owner-chosen secret: APP_SECRET (32+ random characters) derives every internal
+ * secret (DB role password, auth secret, encryption key, cron secret), so the owner sets one value instead of
+ * four. Explicit variables always win. Unlike the demo, nothing is derived from the database URL – rotating the
+ * database password must never change the encryption key. Safe defaults: real providers only (nothing is
+ * connected until a synagogue connects its own account) and one-time codes by e-mail.
+ */
+function productionFromAppSecret() {
+  if (process.env.APP_ENV !== "production") return;
+  process.env.PROVIDER_MODE ??= "live";
+  process.env.OTP_CHANNEL ??= "email";
+  const seed = process.env.APP_SECRET;
+  if (!seed || seed.length < 32) return;
+  const derive = (purpose: string) => createHmac("sha256", seed).update(`synagogue-saas:prod:${purpose}`).digest();
+  process.env.APP_DB_PASSWORD ??= derive("app-db-password").toString("hex");
+  process.env.BETTER_AUTH_SECRET ??= derive("better-auth-secret").toString("hex");
+  process.env.APP_ENCRYPTION_KEY ??= derive("encryption-key").toString("base64");
+  process.env.CRON_SECRET ??= derive("cron-secret").toString("hex");
+}
+productionFromAppSecret();
+
 // Fill derived values once, before config validation and Better Auth read them.
 const b = derivedBaseUrl();
 if (b) {

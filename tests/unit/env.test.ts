@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { appEnv, runtimeDatabaseUrl } from "@/server/env";
 import { loadConfig } from "@/server/config";
 
@@ -168,5 +168,32 @@ describe("SMS on the demo site", () => {
     vi.unstubAllGlobals();
     expect(sent).toEqual(["+972541111111"]);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("production from a single APP_SECRET", () => {
+  it("derives the internal secrets and safe defaults; explicit values win", async () => {
+    const saved = { ...process.env };
+    try {
+      process.env = { ...saved, APP_ENV: "production", APP_SECRET: "x".repeat(40), DATABASE_URL: "postgresql://o:p@h/db", BETTER_AUTH_SECRET: "explicit-secret-explicit-secret-123" } as NodeJS.ProcessEnv;
+      for (const k of ["APP_DB_PASSWORD", "APP_ENCRYPTION_KEY", "CRON_SECRET", "PROVIDER_MODE", "OTP_CHANNEL", "VERCEL"]) delete process.env[k];
+      vi.resetModules();
+      await import("@/server/env");
+      expect(process.env.APP_DB_PASSWORD).toMatch(/^[0-9a-f]{64}$/);
+      expect(Buffer.from(process.env.APP_ENCRYPTION_KEY!, "base64")).toHaveLength(32);
+      expect(process.env.BETTER_AUTH_SECRET).toBe("explicit-secret-explicit-secret-123");
+      expect(process.env.PROVIDER_MODE).toBe("live");
+      expect(process.env.OTP_CHANNEL).toBe("email");
+      const first = process.env.APP_ENCRYPTION_KEY;
+      // the database URL plays no part: a new DB password keeps the same encryption key
+      process.env.DATABASE_URL = "postgresql://o:other@h/db";
+      delete process.env.APP_ENCRYPTION_KEY;
+      vi.resetModules();
+      await import("@/server/env");
+      expect(process.env.APP_ENCRYPTION_KEY).toBe(first);
+    } finally {
+      process.env = saved;
+      vi.resetModules();
+    }
   });
 });

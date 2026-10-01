@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireAdmin } from "@/server/auth/session";
 import { adminOverview } from "@/server/admin/tenants";
 import { Activity, Building2, ChevronLeft, FileText, LifeBuoy, MessageSquare, PlusCircle, ShieldCheck, SlidersHorizontal } from "lucide-react";
-import { Badge, Card, Empty, Money, PageHeader, Stat, fmtDate } from "@/components/ui";
+import { Alert, Badge, Card, Empty, Money, PageHeader, Stat, fmtDate } from "@/components/ui";
+import { emailConfigured } from "@/server/providers/email";
 import { OnboardForm, SubscriptionControls, ManualPaymentForm, ResolveCase } from "./forms";
 
 const SUB: Record<string, string> = { trial: "ניסיון", active: "פעיל", past_due: "ממתין לתשלום", grace: "חסד", suspended: "מושעה", cancelled: "מבוטל" };
@@ -22,6 +23,11 @@ export default async function Admin() {
           </Link>
         }
       />
+      {!emailConfigured() && (
+        <Alert tone="warn">
+          שליחת דוא״ל עוד לא הוגדרה (RESEND_API_KEY ו-EMAIL_FROM). עד אז אי אפשר להוסיף גבאים – הם מקבלים את קישור הסיסמה בדוא״ל.
+        </Alert>
+      )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="בתי כנסת" value={<span className="num">{o.tenants.length}</span>} icon={Building2} />
         <Stat label="מנויים פעילים" value={<span className="num">{o.tenants.filter((t) => t.subscription?.status === "active").length}</span>} icon={ShieldCheck} tone="green" />

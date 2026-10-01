@@ -30,4 +30,4 @@ Local Chromium for e2e in the cloud sandbox: `PW_CHROMIUM_PATH=/opt/pw-browsers/
 
 ## Docs
 `docs/PRODUCT_SPEC.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`,
-`docs/PROVIDER_SETUP.md`, `docs/ACCEPTANCE.md`, `docs/OPERATIONS.md`, `docs/FINAL_REPORT.md`.
+`docs/PROVIDER_SETUP.md`, `docs/LAUNCH.md`, `docs/ACCEPTANCE.md`, `docs/OPERATIONS.md`, `docs/FINAL_REPORT.md`.

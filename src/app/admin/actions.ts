@@ -17,9 +17,12 @@ import { finishEmbeddedSignup, storeWhatsappConnection, type SignupResult } from
 import { saveReminderDefaults, saveSettingsDefaults, type ReminderDefaults } from "@/server/admin/defaults";
 import type { TenantSettings } from "@/server/settings";
 import { saveLoginSettings, type LoginSettings } from "@/server/auth/login-settings";
+import { EMAIL_NOT_CONFIGURED, emailConfigured } from "@/server/providers/email";
 
 /** Creates (or finds) the gabbai account and sends a password-setup link. The admin never knows the password. */
 async function ensureGabbaiUser(email: string, name: string) {
+  // The gabbai receives his password link by e-mail – refuse up front rather than promise a link that never comes.
+  if (!emailConfigured()) throw new DomainError("email_not_configured", EMAIL_NOT_CONFIGURED, 503);
   const e = z.email().parse(email.trim().toLowerCase());
   let user = await prisma.user.findUnique({ where: { email: e } });
   if (!user) {

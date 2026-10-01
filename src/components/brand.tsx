@@ -37,6 +37,9 @@ export function AuthShell({ title, subtitle, children, footer }: { title: React.
           <div className="mt-6 space-y-4">{children}</div>
         </div>
         {footer && <div className="mt-5 text-center text-sm text-slate-600">{footer}</div>}
+        <p className="mt-6 text-center text-xs text-slate-500">
+          <a className="hover:underline" href="/terms">תנאי שימוש</a> · <a className="hover:underline" href="/privacy">מדיניות פרטיות</a>
+        </p>
       </main>
     </div>
   );

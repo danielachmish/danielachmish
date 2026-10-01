@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import pg from "pg";
 import { migrationDatabaseUrl } from "../src/server/env";
+import { loadConfig } from "../src/server/config";
 
 // Build on Vercel: create/refresh the restricted runtime role, run migrations, seed the demo, build Next.
 // Runs with the database owner connection that the Neon integration provides.
@@ -9,12 +10,20 @@ async function main() {
   const dbVars = Object.keys(process.env).filter((k) => /(DATABASE|POSTGRES|STORAGE|NEON|PG)/.test(k) && !/PASSWORD/.test(k)).sort();
   console.log(`database variables present: ${dbVars.length ? dbVars.join(", ") : "(none)"}`);
   console.log(`mode: APP_ENV=${process.env.APP_ENV ?? "-"} PROVIDER_MODE=${process.env.PROVIDER_MODE ?? "-"}`);
+  // Same validation the server runs at start-up – fail the build, not the live site.
+  loadConfig();
+  console.log("✓ configuration valid");
   const owner = migrationDatabaseUrl();
   const appPassword = process.env.APP_DB_PASSWORD;
   if (!owner)
     throw new Error("No database connected. Connect a Postgres database (Storage → Neon → Connect) to the project, then redeploy.");
   console.log(`database host: ${new URL(owner).hostname}`);
-  if (!appPassword || appPassword.length < 24) throw new Error("Set APP_DB_PASSWORD (24+ random characters) in the project's environment variables.");
+  if (!appPassword || appPassword.length < 24)
+    throw new Error(
+      process.env.APP_ENV === "production"
+        ? "Set APP_SECRET (32+ random characters) in the project's environment variables."
+        : "Set APP_DB_PASSWORD (24+ random characters) in the project's environment variables.",
+    );
 
   const c = new pg.Client({ connectionString: owner, connectionTimeoutMillis: 20_000 });
   await c.connect();
@@ -32,6 +41,7 @@ async function main() {
   const env = { ...process.env, MIGRATION_DATABASE_URL: owner };
   execSync("npx prisma migrate deploy", { stdio: "inherit", env });
   if (process.env.APP_ENV === "demo" && process.env.DEMO_SEED !== "false") execSync("npx tsx prisma/seed.ts", { stdio: "inherit", env });
+  if (process.env.APP_ENV === "production") execSync("npx tsx scripts/bootstrap-admin.ts", { stdio: "inherit", env });
   execSync("npx next build", { stdio: "inherit", env });
 }
 
