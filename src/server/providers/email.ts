@@ -23,7 +23,13 @@ export async function sendEmail(msg: Email): Promise<void> {
       body: JSON.stringify({ from, to: [msg.to], subject: msg.subject, text: msg.text }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!res.ok) throw new Error(`email provider HTTP ${res.status}`);
+    if (!res.ok) {
+      // Resend explains rejections (e.g. "domain is not verified", "API key is invalid") – log the reason,
+      // never the recipient or the content.
+      const reason = await res.json().then((b: { message?: string; name?: string }) => b.message ?? b.name ?? "", () => "");
+      console.error(JSON.stringify({ level: "error", where: "email", status: res.status, reason: String(reason).slice(0, 200) }));
+      throw new Error(`email provider HTTP ${res.status}${reason ? `: ${String(reason).slice(0, 200)}` : ""}`);
+    }
     return;
   }
   if (!fakeAllowed()) throw new DomainError("email_not_configured", EMAIL_NOT_CONFIGURED, 503);
