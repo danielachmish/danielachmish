@@ -44,10 +44,10 @@
 3. הבעלים: Resend + סאב-דומיין (`RESEND_API_KEY`, `EMAIL_FROM`) כדי שהזמנות וקודים יגיעו בדוא"ל אמיתי.
 4. הבעלים (בהמשך): חשבון Twilio ומשתני סביבה; אפליקציית Meta + Embedded Signup לפי `docs/WHATSAPP_AND_SMS_SETUP.md`; אימות מול האתר הפרוס (לא נבדק מול Meta/Twilio אמיתיים – חסימת רשת).
 
-## סטטוס הקמת גרסת אמת (01.10.2026)
-- Resend: דומיין `nedarim.danielachmish.com` נוסף, רשומות DNS הוזנו ב-box – ממתין לאימות.
-- Vercel: פרויקט `nedarim` נוצר עם משתני הייצור; מסד Neon (`neon-erin-pebble`) חובר ל-Production בלבד.
-- הבא: פריסה ראשונה, כניסת מנהל, חיבור הכתובת `nedarim.danielachmish.com` והגדרת `APP_BASE_URL`.
+## סטטוס גרסת אמת (02.10.2026)
+- פעילה: https://nedarim-seven.vercel.app (Vercel `nedarim`, APP_ENV=production, Neon נקי, Resend מאומת `nedarim.danielachmish.com`). המנהל בחר סיסמה.
+- הבא: הצטרפות בית הכנסת הראשון מעמדת הניהול; חיבור הכתובת `nedarim.danielachmish.com` (CNAME ב-box) ואז `APP_BASE_URL`.
+- לקח: משתני סביבה שלא נשמרו גרמו לאתר לעלות כדמו – נוספו הגנות (בנייה נכשלת בלי APP_ENV, מסד ייצור עם חשבונות דמו נדחה) ודף `/setup-check`.
 
 ## חסימות
 - אין גישה לתיעוד PayPlus מסביבת הפיתוח (חסימת רשת) ואין הרשאות sandbox.
