@@ -75,7 +75,7 @@ test("gabbai invites a congregant → he opens an account → verifies → sees 
 test("admin decides about phone login and the code channel", async ({ browser }) => {
   const a = await browser.newContext({ storageState: state("admin") });
   const p = await a.newPage();
-  await p.goto("/admin/defaults");
+  await p.goto("/admin/settings");
   await expect(p.getByRole("heading", { name: "כניסת מתפללים" })).toBeVisible();
   const box = p.getByLabel(/כניסת מתפללים עם מספר טלפון וקוד/);
   await expect(box).not.toBeChecked();

@@ -225,7 +225,7 @@ export async function updateGeneralSettingsAction(input: { name: string }) {
       await tx.tenant.update({ where: { id: g.tenantId }, data: { name: input.name.trim() } });
       await audit(tx, g.tenantId, g.actor, "tenant.settings.general");
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
   }, "נשמר.");
 }
 
@@ -268,7 +268,7 @@ export async function updateReminderPolicyAction(input: z.infer<typeof reminderP
       await rescheduleAfterPolicyChange(tx);
       await audit(tx, g.tenantId, g.actor, "tenant.settings.reminders", undefined, { ...p, template: template ? "custom" : "default" });
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
     revalidatePath("/reminders");
   }, input.enabled ? "מדיניות התזכורות נשמרה. תזכורות שתוזמנו יתוזמנו מחדש לפי ההגדרות החדשות." : "תזכורות אוטומטיות כובו. אפשר עדיין לשלוח תזכורת ידנית.");
 }
@@ -281,7 +281,7 @@ export async function updateBehaviourSettingsAction(input: Partial<TenantSetting
       await tx.tenant.update({ where: { id: g.tenantId }, data: { settings: next } });
       await audit(tx, g.tenantId, g.actor, "tenant.settings.behaviour", undefined, next);
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
   }, "ההגדרות נשמרו.");
 }
 
@@ -341,7 +341,7 @@ export async function connectIntegrationAction(input: ConnectInput) {
   return run(async () => {
     const g = await requireGabbai();
     await withContext(g.ctx, (tx) => connectIntegration(tx, g.tenantId, g.actor, input));
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
   }, "החיבור נשמר.");
 }
 
@@ -349,7 +349,7 @@ export async function disconnectIntegrationAction(kind: "payment" | "messaging")
   return run(async () => {
     const g = await requireGabbai();
     await withContext(g.ctx, (tx) => disconnectIntegration(tx, g.tenantId, g.actor, kind));
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
   }, "החיבור נותק. תשלומים שכבר התחילו ימשיכו להיקלט.");
 }
 
@@ -366,7 +366,7 @@ export async function supportGrantAction(input: { adminEmail: string; scope: "re
       });
       await audit(tx, g.tenantId, g.actor, "support_grant.create", { type: "SupportGrant", id: grant.id }, { scope: input.scope, hours });
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
   }, "גישת התמיכה ניתנה לזמן מוגבל.");
 }
 
@@ -377,7 +377,7 @@ export async function revokeSupportGrantAction(id: string) {
       await tx.supportGrant.updateMany({ where: { id: uuid.parse(id), revokedAt: null }, data: { revokedAt: new Date() } });
       await audit(tx, g.tenantId, g.actor, "support_grant.revoke", { type: "SupportGrant", id });
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
   }, "הגישה בוטלה.");
 }
 
@@ -433,7 +433,7 @@ export async function completeWhatsappSignupAction(input: SignupResult) {
     const g = await requireGabbai();
     const r = await finishEmbeddedSignup(input);
     await withContext(g.ctx, (tx) => storeWhatsappConnection(tx, g.tenantId, g.actor, { ...input, token: r.token, pin: r.pin }));
-    revalidatePath("/settings");
+    revalidatePath("/settings", "layout");
     return { templates: r.templates };
   }, "וואטסאפ חובר. תבניות ההודעה נשלחו לאישור של Meta (בדרך כלל דקות עד שעות).");
 }

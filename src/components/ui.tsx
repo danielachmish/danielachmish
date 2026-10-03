@@ -261,3 +261,59 @@ export const fmtDateTime = (d: Date | string | null | undefined) =>
 
 export const METHOD_LABEL: Record<string, string> = { card: "אשראי", cash: "מזומן", transfer: "העברה", check: "צ'ק" };
 export const STATUS_LABEL: Record<string, string> = { confirmed: "מאושר", pending_approval: "ממתין לאישור", rejected: "נדחה" };
+
+/** Link tabs for sub-pages (works in server components; the active tab is passed in). */
+export function Tabs({ items, active }: { items: { href: string; label: string; count?: number }[]; active: string }) {
+  return (
+    <nav aria-label="לשוניות" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <ul className="flex min-w-max gap-1 rounded-2xl border border-slate-200/80 bg-white p-1 shadow-card">
+        {items.map((t) => {
+          const on = t.href === active;
+          return (
+            <li key={t.href}>
+              <Link
+                href={t.href}
+                aria-current={on ? "page" : undefined}
+                className={cx(
+                  "inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition",
+                  on ? "bg-brand-700 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                )}
+              >
+                {t.label}
+                {t.count ? <span className={cx("num rounded-full px-1.5 text-xs font-bold", on ? "bg-white/20" : "bg-gold-100 text-gold-700")}>{t.count}</span> : null}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Single-series column chart (one hue, rounded data-ends, recessive baseline). Each column has a hover
+ * tooltip and an accessible label; the values are also available as a table via `tableLabel`.
+ */
+export function ColumnChart({ data, label, unit = "", tone = "brand" }: { data: { key: string; label: string; value: number }[]; label: string; unit?: string; tone?: "brand" | "green" | "gold" }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const bar = { brand: "bg-brand-500", green: "bg-emerald-500", gold: "bg-gold-400" }[tone];
+  return (
+    <figure>
+      <div className="flex h-36 items-end gap-1 border-b border-slate-200 sm:gap-2" role="img" aria-label={`${label}: ${data.map((d) => `${d.label} ${d.value}${unit}`).join(", ")}`}>
+        {data.map((d) => (
+          <div key={d.key} className="group relative flex h-full flex-1 items-end justify-center">
+            <div className={cx("w-full max-w-7 rounded-t-[4px] transition-opacity group-hover:opacity-80", bar, d.value === 0 && "opacity-20")} style={{ height: `${Math.max(d.value ? 4 : 2, (d.value / max) * 100)}%` }} />
+            <span className="pointer-events-none absolute bottom-full mb-1 hidden whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-xs text-white shadow group-hover:block">
+              {d.label}: <span className="num">{d.value.toLocaleString("en-US")}{unit}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-1 text-[10px] text-slate-500 sm:gap-2">
+        {data.map((d) => (
+          <span key={d.key} className="flex-1 truncate text-center">{d.label}</span>
+        ))}
+      </div>
+    </figure>
+  );
+}

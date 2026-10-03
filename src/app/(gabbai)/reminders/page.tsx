@@ -41,7 +41,7 @@ export default async function Reminders() {
         title="מדיניות נוכחית"
         icon={SlidersHorizontal}
         actions={
-          <LinkButton href="/settings#reminders" variant="secondary" size="sm">
+          <LinkButton href="/settings/reminders" variant="secondary" size="sm">
             שינוי
           </LinkButton>
         }

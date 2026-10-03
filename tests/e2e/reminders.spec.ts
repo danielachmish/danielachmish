@@ -4,7 +4,7 @@ import { openCard, ownerQuery, state } from "./helpers";
 test.use({ storageState: state("gabbai1") });
 
 test("gabbai sets the reminder policy: off, days, time, custom text", async ({ page }) => {
-  await page.goto("/settings#reminders");
+  await page.goto("/settings/reminders");
   const form = page.locator("form", { hasText: "שליחת תזכורות אוטומטית" });
   await form.getByRole("button", { name: "ג׳" }).click(); // toggle Tuesday off
   await form.getByLabel("שעת שליחה (שעון ישראל)").fill("18:30");
@@ -56,7 +56,7 @@ test("bulk reminder: preview then confirm", async ({ page }) => {
 });
 
 test("behaviour settings: disable partial payment → hidden on the personal page", async ({ page }) => {
-  await page.goto("/settings#behaviour");
+  await page.goto("/settings/behaviour");
   const form = page.locator("form", { hasText: "התנהגות" }).or(page.locator("form", { hasText: "תשלום חלקי" })).first();
   await form.getByRole("switch", { name: "תשלום חלקי" }).uncheck();
   await form.getByRole("button", { name: "שמירת הגדרות" }).click();

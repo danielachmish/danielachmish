@@ -3,8 +3,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  Activity,
   Bell,
+  Building2,
   CreditCard,
+  FileText,
+  LifeBuoy,
+  PlusCircle,
   History,
   LayoutDashboard,
   ListChecks,
@@ -12,7 +17,6 @@ import {
   NotebookPen,
   PieChart,
   Settings,
-  ShieldCheck,
   SlidersHorizontal,
   Users,
   X,
@@ -35,14 +39,20 @@ const NAV: Item[] = [
   { href: "/settings", label: "הגדרות", icon: Settings },
 ];
 const ADMIN_NAV: Item[] = [
-  { href: "/admin", label: "סקירת השירות", icon: ShieldCheck },
-  { href: "/admin/defaults", label: "הגדרות מערכת", icon: SlidersHorizontal },
+  { href: "/admin", label: "לוח בקרה", icon: LayoutDashboard },
+  { href: "/admin/tenants", label: "בתי כנסת", icon: Building2 },
+  { href: "/admin/onboard", label: "הצטרפות בית כנסת", icon: PlusCircle },
+  { href: "/admin/billing", label: "מנויים וחשבוניות", icon: FileText },
+  { href: "/admin/health", label: "תקינות המערכת", icon: Activity },
+  { href: "/admin/support", label: "תמיכה ותקלות", icon: LifeBuoy },
+  { href: "/admin/settings", label: "הגדרות מערכת", icon: SlidersHorizontal },
+  { href: "/admin/activity", label: "יומן פעולות", icon: History },
 ];
 // Mobile bottom bar: the four daily screens + "more".
-const PRIMARY = ["/dashboard", "/congregants", "/pledges/batch", "/payments", "/admin", "/admin/defaults"];
+const PRIMARY = ["/dashboard", "/congregants", "/pledges/batch", "/payments", "/admin", "/admin/tenants", "/admin/onboard", "/admin/billing"];
 
 const isActive = (path: string, href: string) =>
-  path === href || (href !== "/dashboard" && href !== "/admin" && path.startsWith(href + "/")) || (href === "/admin" && path.startsWith("/admin/tenants"));
+  path === href || (href !== "/dashboard" && href !== "/admin" && path.startsWith(href + "/"));
 
 export function GabbaiShell({
   tenantName,

@@ -63,7 +63,7 @@ export default async function Dashboard() {
 
       {(!hasPayment || !hasMessaging || (data.sub && ["suspended", "cancelled"].includes(data.sub.status))) && (
         <div className="space-y-2">
-          {!hasPayment && <Alert tone="warn">הסליקה עדיין לא חוברה. מתפללים לא יוכלו לשלם באשראי עד שתחברו חשבון ב<Link className="font-medium underline" href="/settings">הגדרות</Link>.</Alert>}
+          {!hasPayment && <Alert tone="warn">הסליקה עדיין לא חוברה. מתפללים לא יוכלו לשלם באשראי עד שתחברו חשבון ב<Link className="font-medium underline" href="/settings/integrations">הגדרות ← חיבורים</Link>.</Alert>}
           {!hasMessaging && <Alert tone="warn">חשבון הוואטסאפ לא חובר – תזכורות אוטומטיות לא יישלחו. אפשר לשלוח מהוואטסאפ שלך מכרטיס המתפלל.</Alert>}
           {data.sub && ["suspended", "cancelled"].includes(data.sub.status) && (
             <Alert tone="error">המנוי אינו פעיל. תשלומים ותזכורות חדשים מושהים; תשלומים שכבר התחילו ימשיכו להיקלט.</Alert>

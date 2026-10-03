@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { manualPaymentAction, onboardAction, replaceGabbaiAction, resolveCaseAction, saveLoginSettingsAction, subscriptionStatusAction } from "./actions";
+import { manualPaymentAction, replaceGabbaiAction, resolveCaseAction, saveLoginSettingsAction, subscriptionStatusAction } from "./actions";
 import type { CodeChannel, LoginSettings } from "@/server/auth/login-settings";
 import type { ActionResult } from "@/server/actions/result";
 import { Alert, Button, Field, Input, Select } from "@/components/ui";
@@ -15,19 +15,6 @@ function useAct() {
     if (r.ok) router.refresh();
   };
   return { act, note: msg && <Alert tone={msg.ok ? "success" : "error"}>{msg.text}</Alert> };
-}
-
-export function OnboardForm() {
-  const { act, note } = useAct();
-  return (
-    <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); act(() => onboardAction({ name: String(f.get("name")), city: String(f.get("city")), gabbaiEmail: String(f.get("email")), gabbaiName: String(f.get("gname")) })); }}>
-      <Field label="שם בית הכנסת"><Input name="name" required /></Field>
-      <Field label="עיר"><Input name="city" /></Field>
-      <Field label="שם הגבאי הראשי"><Input name="gname" required /></Field>
-      <Field label="דוא״ל הגבאי"><Input name="email" type="email" dir="ltr" required /></Field>
-      <div className="flex items-center gap-3 sm:col-span-2"><Button>יצירה ושליחת הזמנה</Button>{note}</div>
-    </form>
-  );
 }
 
 export function SubscriptionControls({ tenantId, status }: { tenantId: string; status: string }) {

@@ -41,8 +41,9 @@ export async function onboardAction(input: { name: string; city: string; gabbaiE
     const u = await ensureGabbaiUser(input.gabbaiEmail, input.gabbaiName);
     const existing = await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => tx.membership.findFirst({ where: { userId: u.id, active: true } }));
     if (existing) throw new DomainError("already_member", "המשתמש כבר גבאי ראשי בבית כנסת אחר.", 409);
-    await onboardTenant(a.actor, { name: input.name, city: input.city, headGabbaiUserId: u.id });
-    revalidatePath("/admin");
+    const t = await onboardTenant(a.actor, { name: input.name, city: input.city, headGabbaiUserId: u.id });
+    revalidatePath("/admin", "layout");
+    return { tenantId: t.id };
   }, "בית הכנסת נוסף ונשלח לגבאי קישור לבחירת סיסמה.");
 }
 
@@ -50,7 +51,7 @@ export async function subscriptionStatusAction(tenantId: string, status: SubStat
   return run(async () => {
     const a = await requireAdmin();
     await setSubscriptionStatus(a.actor, z.uuid().parse(tenantId), status);
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
   }, "מצב המנוי עודכן.");
 }
 
@@ -58,7 +59,7 @@ export async function manualPaymentAction(tenantId: string, invoiceId: string, r
   return run(async () => {
     const a = await requireAdmin();
     await recordManualSubscriptionPayment(a.userId, z.uuid().parse(tenantId), z.uuid().parse(invoiceId), reference);
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
   }, "התשלום נרשם.");
 }
 
@@ -67,7 +68,7 @@ export async function replaceGabbaiAction(tenantId: string, email: string, name:
     const a = await requireAdmin();
     const u = await ensureGabbaiUser(email, name);
     await replaceHeadGabbai(a.actor, z.uuid().parse(tenantId), u.id, reason);
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
   }, "הגבאי הוחלף ותועד. נשלח קישור לבחירת סיסמה.");
 }
 
@@ -77,7 +78,7 @@ export async function resolveCaseAction(id: string) {
     await withContext({ kind: "platform_admin", userId: a.userId }, (tx) =>
       tx.supportCase.update({ where: { id: z.uuid().parse(id) }, data: { status: "resolved", resolvedAt: new Date() } }),
     );
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
   });
 }
 
@@ -88,7 +89,7 @@ export async function adminConnectIntegrationAction(tenantId: string, input: Con
     const id = z.uuid().parse(tenantId);
     await withContext({ kind: "tenant", tenantId: id, userId: a.userId, actor: a.actor }, (tx) => connectIntegration(tx, id, a.actor, input));
     revalidatePath(`/admin/tenants/${id}`);
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
   }, "החיבור נשמר עבור בית הכנסת.");
 }
 
@@ -106,7 +107,7 @@ export async function saveReminderDefaultsAction(input: ReminderDefaults) {
   return run(async () => {
     const a = await requireAdmin();
     await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveReminderDefaults(tx, a.userId, input));
-    revalidatePath("/admin/defaults");
+    revalidatePath("/admin/settings");
   }, "ברירות המחדל לתזכורות נשמרו. הן יחולו על בתי כנסת שיצטרפו מעכשיו.");
 }
 
@@ -114,7 +115,7 @@ export async function saveSettingsDefaultsAction(input: Partial<TenantSettings>)
   return run(async () => {
     const a = await requireAdmin();
     await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveSettingsDefaults(tx, a.userId, input));
-    revalidatePath("/admin/defaults");
+    revalidatePath("/admin/settings");
   }, "ברירות המחדל נשמרו. הן יחולו על בתי כנסת שיצטרפו מעכשיו.");
 }
 
@@ -135,7 +136,7 @@ export async function saveLoginSettingsAction(input: LoginSettings) {
   return run(async () => {
     const a = await requireAdmin();
     await withContext({ kind: "platform_admin", userId: a.userId }, (tx) => saveLoginSettings(tx, a.userId, input));
-    revalidatePath("/admin/defaults");
+    revalidatePath("/admin/settings");
     revalidatePath("/login");
   }, "הגדרות הכניסה נשמרו.");
 }
