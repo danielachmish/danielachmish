@@ -9,7 +9,7 @@ description: Architecture and delivery playbook for building anything software -
 | Tier | Examples | Stack | Skip |
 |---|---|---|---|
 | **XS – tool** | calculator, converter, one-page form, mini game, personal tracker | single HTML Artifact (browser storage, or Artifact `db` capability for shared data) | repo, auth, server |
-| **S – small app** | one business, few screens, simple data, maybe login | Next.js + TS + Supabase (Postgres + auth + storage) or SQLite; Vercel; PWA for phone | multi-tenant, queues, RLS hand-rolled |
+| **S – small app** | one business, few screens, simple data, maybe login | Next.js + TS + Supabase (Postgres + auth + storage); Vercel; PWA for phone | multi-tenant, queues, hand-rolled RLS, super-admin |
 | **M – product** | several roles, payments, notifications | full default stack below + RBAC + audit | multi-tenant unless needed |
 | **L – system / SaaS** | many businesses, money, compliance | full stack + multi-tenant + RLS + jobs + audit + phases | nothing |
 State the tier in one line. If it will clearly grow (many users, money, roles) start one tier up; XS that may grow → build it as S.
@@ -32,15 +32,15 @@ Ask only if unknown: (1) who uses it + scale (one business vs SaaS for many), (2
 Then load `domain-knowledge` for the domain and draft the plan.
 
 ## Phase 1 – One-page spec (M/L: get approval; XS/S: 3 lines then build)
-1. Actors & roles table (role → can see / can do). Always include: Owner/Admin, Manager, Staff (scoped), End-user/Customer, Platform super-admin (no tenant data without grant).
+1. Actors & roles table (role → can see / can do). S: only the roles that really exist (often admin + user). M: Owner/Admin, Manager, Staff (scoped), End-user. L: add Platform super-admin (no tenant data without grant).
 2. Core entities + relations (bullet ERD).
 3. Key flows (3–7), each happy path + failure path.
 4. Screens per role.
 5. Integrations, reports/KPIs, notifications.
 6. Phases: MVP → v1 → v2. MVP = smallest thing that is usable end-to-end.
-Write to `docs/PRODUCT_SPEC.md` (+ `docs/PROGRESS.md` with "Next action") so every session resumes instantly.
+Write to the NEW project's `docs/PRODUCT_SPEC.md` + `docs/PROGRESS.md` ("Next action") – never into an unrelated existing repo's docs.
 
-## Default stack (change only with reason)
+## Default stack for M/L (change only with reason)
 Next.js App Router + TypeScript strict · PostgreSQL + Prisma · Better Auth · Tailwind (RTL) · pg-boss for jobs · Zod validation · Vitest + Playwright · deploy Vercel + managed Postgres.
 Mobile → responsive PWA first. Simple static site → Next.js static or plain HTML Artifact.
 
@@ -48,7 +48,7 @@ Mobile → responsive PWA first. Simple static site → Next.js static or plain 
 - **Multi-tenant** from day 1 when >1 business may use it: `tenantId` on every business row + Postgres RLS + tenant only from session.
 - **RBAC**: roles → permissions map in one file; check on server in every mutation/query (`requireRole`). UI hiding is cosmetic only.
 - **Audit log**: who/when/what for every mutation of business data.
-- **Money**: integer minor units (agorot), never floats; ledgers append-only; balances computed.
+- **Money (stored)**: amounts that are persisted/charged → integer agorot, append-only ledgers, computed balances. Pure calculators/projections may use floats and round for display.
 - **Time**: store UTC, display Asia/Jerusalem; Hebrew dates where relevant.
 - **Security**: server-side validation (Zod), no secrets in client, rate-limit auth, CSRF-safe actions, least-privilege DB role, PII minimization (Israeli Privacy Protection Law / Amendment 13).
 - **Files**: object storage, signed URLs. **Jobs**: queue for emails/SMS/reminders, idempotent with retries.

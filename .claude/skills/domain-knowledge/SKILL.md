@@ -27,5 +27,7 @@ Scale the depth to the request: a small app needs steps 1–3 in two minutes; a 
 | Appointments, clinics, salons, classes, booking | `references/scheduling.md` |
 | Online store, inventory, orders, shipping | `references/ecommerce-inventory.md` |
 | HR, employees, attendance, payroll | `references/hr-payroll.md` |
+| Kids/youth activities, clubs, classes, camps (חוגים) | `references/kids-activities.md` |
 
+Numeric regulation (rates, limits, thresholds, tax brackets) → always a quick `research` check and show the "checked on" date in the product.
 No pack → use the method. If the user returns to a domain repeatedly, offer to save the result as a new pack here.

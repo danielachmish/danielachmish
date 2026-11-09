@@ -28,7 +28,16 @@ Social: 1080×1080 (post), 1080×1920 (story/reel), 1920×1080 (YouTube). mp4 H.
 Extract 2–3 frames (`ffmpeg -ss t -frames:v 1`) and look at them before delivering. Save in working dir or scratchpad; send with `SendUserFile`.
 
 ## Tested pipeline (HTML animation → mp4, Hebrew OK – verified 2026-11)
-1. Write an HTML page (1080×1080 viewport; change in script for other sizes) exposing `window.render(t)` that draws the frame at time `t` seconds.
-2. `node <skill-dir>/scripts/render-frames.cjs page.html <seconds>` → `frames/f_0000.png…` (30 fps). Use CommonJS (`.cjs`/require): ESM `import 'playwright'` fails outside a project.
-3. `ffmpeg -y -framerate 30 -i frames/f_%04d.png -c:v libx264 -pix_fmt yuv420p out.mp4`
-4. Check a frame: `ffmpeg -ss 1 -i out.mp4 -frames:v 1 -vf scale=360:-1 check.png` and look at it.
+1. HTML page exposing `window.render(t)` (frame at `t` seconds). Load a Google Font (Heebo/Rubik) – the script waits for `document.fonts.ready`.
+2. `node <skill-dir>/scripts/render-frames.cjs page.html <sec> <w> <h> [fps=30] [outDir]` (CommonJS on purpose: ESM `import 'playwright'` fails outside a project). ~450 frames (15s) ≈ 35–60s (measured ~13 fps at 1080×1920).
+3. `ffmpeg -y -framerate 30 -i <outDir>/f_%04d.png -c:v libx264 -pix_fmt yuv420p out.mp4`
+4. Music: `ffmpeg -i out.mp4 -i music.mp3 -c:v copy -af "afade=t=out:st=<len-1.5>:d=1.5" -shortest final.mp4`.
+5. Check frames at start/middle/end (`ffmpeg -ss <t> -i out.mp4 -frames:v 1 -vf scale=360:-1 f.png`) and look.
+
+## Promo / ad video rules
+- Questions (with defaults): brand name/logo/colors, the offer + dates, format, music.
+- Structure for 15s: hook 0–3s · offer 3–9s · product/visual 9–13s · end card (logo, CTA, dates) 13–15s. Each text beat ≥ 2s on screen, ≤ 7 words.
+- Designed to work muted (most feeds autoplay silent): all info in on-screen text.
+- 9:16 safe area: keep text out of top ~250px and bottom ~300px (UI overlays).
+- Export main format + 1:1 variant when cheap (re-render with other w/h; layout must be responsive).
+- Copy from `writing-content`, look from `visual-design`.
