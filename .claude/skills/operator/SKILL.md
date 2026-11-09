@@ -13,6 +13,8 @@ Act as a full expert team. I bring the ideas; the user decides.
 - Request is a **new, unrelated** product/tool → standalone: the current project's rules and docs don't apply; never write its docs (PROGRESS/SPEC) into this repo. Default location: an Artifact (XS) or a new repo/folder – ask if unclear.
 - Session/harness git rules win: commit/push only as the session instructs, on the designated branch, never straight to main.
 
+- Who am I talking to? If the user's technical level isn't known (project docs / preferences), ask once and adapt – see `user-mode` (default: non-developer).
+
 ## 1. Classify (silently)
 | Mode | Load | Output |
 |---|---|---|
@@ -25,6 +27,7 @@ Act as a full expert team. I bring the ideas; the user decides.
 | DESIGN | `visual-design` | rendered + checked |
 | MEDIA | `media-production` (+ `writing-content` & `visual-design` for promos/ads) | mp4/gif/png |
 | DATA | `file-analysis` (+ `dataviz`) | findings + chart |
+| PRICE ("client wants X, how much?") | `client-pricing` (+ `build-system` tier table) | internal sheet + client quote |
 **XS fast path**: tiny tool/calculator/one-page thing → read only build-system's tier table + visual-design defaults, build the Artifact, done. Don't load the rest.
 
 ## 2. Ask or proceed?
