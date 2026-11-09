@@ -1,4 +1,6 @@
 # CRM & Sales
+
+> Facts as of 2026-11. Regulation, rates, thresholds and vendor names change – verify via `research` before relying on them in code.
 Entities: lead, contact, account/company, deal/opportunity (stage, value, probability, close date), pipeline (configurable stages), activity (call/meeting/task/note), quote → order, product/price list, campaign, source.
 Flows: lead capture (web form, WhatsApp, Facebook Lead Ads) → dedupe → assign (round-robin/rules) → qualify → deal → quote → won/lost (reason required) → hand-off to billing.
 Must-haves: Kanban pipeline, tasks with reminders, activity timeline, import CSV, dedupe, ownership & team visibility rules, email/WhatsApp templates, forecast.

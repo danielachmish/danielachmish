@@ -1,5 +1,7 @@
 # Hotel / PMS
 
+> Facts as of 2026-11. Regulation, rates, thresholds and vendor names change – verify via `research` before relying on them in code.
+
 ## Entities
 Property, room type (capacity, amenities), room (number, floor, status), rate plan (BB/HB/room-only, refundable/non-refundable, min-stay), season/price calendar, availability/inventory per room-type per night, reservation (+ rooms/guests/nights), guest profile, folio (charges/payments), deposit, cancellation policy, channel (direct/OTA), housekeeping task, maintenance ticket, invoice.
 

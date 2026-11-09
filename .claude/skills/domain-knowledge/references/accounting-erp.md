@@ -1,5 +1,7 @@
 # Accounting / ERP
 
+> Facts as of 2026-11. Regulation, rates, thresholds and vendor names change – verify via `research` before relying on them in code.
+
 ## Double-entry core
 - Every transaction = journal entry with ≥2 lines; Σdebit = Σcredit (enforce in DB/engine).
 - Chart of accounts (מבנה חשבונות): Assets, Liabilities, Equity, Income, Expenses (+ cost of sales). Hierarchical codes, sort codes for reports.

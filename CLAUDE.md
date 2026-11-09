@@ -33,4 +33,4 @@ Local Chromium for e2e in the cloud sandbox: `PW_CHROMIUM_PATH=/opt/pw-browsers/
 `docs/PROVIDER_SETUP.md`, `docs/LAUNCH.md`, `docs/ACCEPTANCE.md`, `docs/OPERATIONS.md`, `docs/FINAL_REPORT.md`.
 
 ## Working style (all requests)
-Start every new request with the `operator` skill (`.claude/skills/`): classify → ask ≤4 questions with defaults only if needed → load the matching skill (build-system, domain-knowledge, research, visual-design, media-production) → deliver verified results. Bring expert ideas proactively; keep replies short. See `docs/PLAYBOOK.md`.
+Start every new request with the `operator` skill (`.claude/skills/`): classify → ask ≤4 questions with defaults only if needed → load the matching skill (build-system, domain-knowledge, research, writing-content, file-analysis, visual-design, media-production). Project rules above override playbook defaults → deliver verified results. Bring expert ideas proactively; keep replies short. See `docs/PLAYBOOK.md`.
