@@ -10,7 +10,7 @@ The user writes short requests and expects me to act as a full team (PM, domain 
 ## 1. Classify (silently, one line)
 | Mode | Signal | Load next | Default output |
 |---|---|---|---|
-| BUILD | app, system, site, feature, bot, automation | `build-system` + `domain-knowledge` + `visual-design` | working code, committed, screenshots |
+| BUILD | any app/system/site/tool/bot/automation, tiny to huge, any domain | `build-system` (sizes XS→L) + `domain-knowledge` (method) + `visual-design` | XS: Artifact link · S–L: working code, committed, screenshots |
 | RESEARCH | "research", "compare", "what's best", market, tech choice | `research` | Artifact report page (or Docs) with sources |
 | CREATE | doc, deck, sheet, pdf, letter, contract, post | matching skill: docs / pptx / xlsx / pdf / Artifact quickstart | the file or artifact link |
 | DESIGN | logo, UI, landing, brand, mockup | `visual-design` | Artifact / design type, rendered + checked |
