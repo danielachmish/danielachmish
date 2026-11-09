@@ -12,7 +12,9 @@ description: Pricing a software project for a client - realistic quotes for an A
 2. **Three parts, always separate**: (a) one-time build, (b) monthly service (hosting + maintenance + support), (c) changes beyond scope (hourly or package).
 3. **Scope is the product.** Every quote lists what's included, what's excluded, number of revision rounds, and what counts as a change.
 4. **Pass-through costs** (hosting, DB, SMS, WhatsApp, payment fees, domain) = client's, either billed at cost + 20–40% handling, or the client opens accounts in their own name (better for non-trivial systems – they own their data).
-5. **Never quote below risk**: money, personal data, minors, medical, legal compliance → +30–60% (testing, security review, liability).
+5. **The client's alternative caps the price.** If an off-the-shelf SaaS does 80% of it for ₪100–500/month, a custom build must justify the difference (fit, ownership, integration). Always name the alternative in the internal sheet.
+6. **Real hours ≠ build hours.** Even when AI builds in 2–3h, a real project costs meetings, revisions, deployment, training and support: XS ~3–8h, S ~10–30h, M ~30–80h, L 100h+. Never price below real hours × 200 ₪.
+7. **Never quote below risk**: money, personal data, minors, medical, legal compliance → +30–60% (testing, security review, liability).
 
 ## Size → starting ranges (ILS, excl. VAT)
 | Size (see build-system tiers) | Build (one-time) | Monthly service | Typical example |
@@ -20,8 +22,9 @@ description: Pricing a software project for a client - realistic quotes for an A
 | XS tool / landing page | 1,500–5,000 | 100–300 | calculator, lead form, one-page site |
 | S small app | 5,000–15,000 | 300–900 | booking for one business, internal tracker |
 | M product (roles, payments, notifications) | 15,000–45,000 | 900–2,500 | club/school app with parent payments |
-| L system / SaaS (multi-business, compliance) | 45,000–150,000+ | 2,500–8,000 or revenue share | ERP module, multi-tenant platform |
+| L system / SaaS (multi-business, compliance) | 45,000–150,000+ | 2,500–8,000 or revenue share | ERP module, multi-tenant platform – solo developer: be sure you can support it 24/7 before selling |
 Hourly for changes: 200–400 ₪ (or prepaid hour packs). Rush (< 1 week): +25–50%.
+Calibration: XS/S and hourly match the Israeli freelance market; M/L are the low end vs. agencies (often 2–3× higher) – positioned as an AI-assisted solo price. Replace with the user's real won/lost quotes as they accumulate (log them in `references/quotes-log.md`).
 
 ## Monthly service – what it includes (say it explicitly)
 hosting & DB & backups, uptime monitoring, security/dependency updates, bug fixes, N hours of small changes (e.g. 2–5h), response time (e.g. next business day). New features = separate quote.
