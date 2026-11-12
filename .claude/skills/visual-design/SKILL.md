@@ -1,6 +1,6 @@
 ---
 name: visual-design
-description: Design standards for any UI, page, landing page, dashboard, logo, brand, mockup, deck visuals. Use whenever producing something people look at - app screens, Artifacts, marketing pages, icons, branding.
+description: Design and motion standards for any UI - app screens, live/realtime systems, dashboards, landing pages, Artifacts, logos, branding, mockups - including component stack, RTL, animations and micro-interactions. Use whenever producing something people look at or interact with.
 ---
 
 # Visual Design
@@ -18,5 +18,35 @@ description: Design standards for any UI, page, landing page, dashboard, logo, b
 - Every screen: clear primary action, empty state, loading skeleton, error message in plain Hebrew, mobile layout at 375px.
 - Dashboards: KPI tiles on top, then trend chart, then actionable table.
 
+## Component stack (React/Next apps)
+Tailwind + shadcn/ui (Radix primitives: accessible dialogs, menus, tabs) · lucide icons · sonner toasts · Recharts for charts (`dataviz` rules) · react-hook-form + Zod for forms · TanStack Table for data grids. Set `dir="rtl"` on `<html>` and verify Radix popovers/menus open on the correct side.
+
+## Motion – which tool
+| Need | Tool |
+|---|---|
+| Hover, focus, press, simple fades | CSS transitions / Tailwind `transition` + `animate-*` |
+| Lists that add/remove/reorder | `@formkit/auto-animate` (one line) or Motion `layout` |
+| Enter/exit, modals, drawers, tabs, shared-element, gestures/drag | Motion (`motion/react`, ex-Framer Motion) + `AnimatePresence` |
+| Page-to-page transitions | View Transitions API (Next.js support; progressive – fine if browser lacks it) |
+| Complex timelines, scroll-driven storytelling (landing pages) | GSAP + ScrollTrigger (free incl. plugins) |
+| Illustrated animations (success, empty states, loaders) | Lottie (`@lottiefiles/dotlottie-react`) from LottieFiles assets; Rive for interactive state machines (needs designer-made file) |
+| 3D / particles / hero visuals | React Three Fiber (three.js); canvas for particles – lazy-load |
+| Celebrations | `canvas-confetti` (sparingly: real milestones only) |
+
+## Motion rules
+- Purpose first: feedback, orientation, continuity, delight – never decoration that delays work.
+- Durations: micro 100–150ms · small UI 200–250ms · modal/drawer/page 250–350ms · large/hero ≤ 500ms. Enter ease-out, exit ease-in (exit ~20% faster). Springs for drag/gestures.
+- Animate only `transform` and `opacity` (GPU); never width/height/top/left on big elements; no animation on lists > ~100 rows.
+- RTL: "forward" = slide from the left, back = from the right; drawers open from the start side (right). Use a direction variable, never hard-coded x signs.
+- Always honor `prefers-reduced-motion` (Motion `useReducedMotion` / CSS media query) – required for accessibility (IS 5568).
+- Lazy-load heavy libs (GSAP, three, Lottie) per route; keep INP < 200ms.
+
+## Live / realtime UI
+- Data push: SSE or WebSockets / Supabase Realtime / Postgres LISTEN; fallback polling with backoff.
+- Optimistic updates with rollback + toast on failure.
+- Changed values: brief highlight flash (bg fade 600–1000ms) or number tween; new rows slide/fade in at top; don't steal scroll position.
+- Status: connection indicator (live / reconnecting), "updated X seconds ago", presence avatars when collaborative.
+- Loading: skeletons matching final layout (no spinners for > 300ms waits); empty states with an action.
+
 ## Verify
-Screenshot with Playwright at the width most users have (mobile 375 for consumer apps, 1280 for back-office); add the second width only for layout-heavy screens. Fix misalignment/overflow/contrast before delivering.
+Screenshot with Playwright at the width most users have (mobile 375 for consumer apps, 1280 for back-office); add the second width only for layout-heavy screens. Fix misalignment/overflow/contrast before delivering. For animations: record the interaction with Playwright `recordVideo`, extract frames with ffmpeg and check timing/jank; test once with reduced motion emulated.
